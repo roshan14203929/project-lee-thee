@@ -2,10 +2,11 @@
 
 ## Precedence
 
-Resolve instructions in this order: this file, the matching file under
-`guidelines/base/`, project guidelines, then page guidelines. Later rules may
-override earlier rules only when they address the same requirement explicitly.
-Write the resolved source list and SHA-256 hash into every run.
+Resolve instructions in this order: this file, then role- and channel-scoped
+files under `guidelines/global/` and `guidelines/<channel>/`, then project
+guidelines, then page guidelines. Later rules may override earlier rules only
+when they address the same requirement explicitly. Write the resolved source
+list and SHA-256 hash into every run.
 
 ## Figma extraction
 
@@ -115,19 +116,22 @@ Write the resolved source list and SHA-256 hash into every run.
   Never run a formatter over an entire delivery template.
 - When available, rely on Prettier and `html-validate` for formatting, tag
   closing, doctype, charset, attribute quoting, and void-element validation;
-  apply the platform coding-rules file to requirements those tools do not cover.
+  apply the platform coding-rules files to requirements those tools do not cover.
 - When XHTML is explicitly required, convert the completed HTML only as the
-  final local step and manually compare the result with the project's
-  XHTML-versus-HTML reference. Do not introduce an external model API for the
+  final local step and manually compare the result with the channel's
+  XHTML-versus-HTML5 reference. Do not introduce an external model API for the
   conversion.
 
 ## Coding standards
 
-HTML structure, semantic hygiene, image markup, accessibility, and font-loading
-rules live in the platform coding-rules file — `html-coding-rules.md` for
-HTML5 or `xhtml-coding-rules.md` for MediChannel. `kit.py guidelines --role
-<role>` delivers the right file alongside the role's own guidelines. Do not
-duplicate those rules here.
+HTML/CSS structure, naming, accessibility, and hygiene rules live in
+`guidelines/global/coding/*.md` — the channel-agnostic baseline every build
+must follow regardless of platform. The active channel folder
+(`guidelines/medichannel/coding/` or `guidelines/m3/coding/`) adds only the
+rules that genuinely differ from that baseline (font-size unit, XHTML syntax,
+etc.) — it never repeats what the baseline already states.
+`kit.py guidelines --role <role>` delivers the correct combination
+automatically once a platform is set. Do not duplicate these rules here.
 
 ## Release
 
@@ -136,38 +140,21 @@ duplicate those rules here.
   copying.
 - Include the run record, guideline snapshot, final QA summary, and checksums.
 
-## Platform guidelines
+## Channels
 
-Confirm the platform at ticket intake and record it with
+Confirm the channel at ticket intake and record it with
 `kit.py set-platform <project> --platform medichannel|html5` (or pass
-`--platform` to `init-project`). MediChannel and HTML5 (M3, CareNet) have
-mutually exclusive coding standards — building under the wrong ruleset means a
-complete rebuild — so `new-run` refuses to start until a platform is set.
+`--platform` to `init-project`). MediChannel and HTML5 (M3, CareNet,
+ThirdParty) have mutually exclusive coding standards — building under the
+wrong ruleset means a complete rebuild — so `new-run` refuses to start until a
+platform is set. If a snapshot opens with a "no platform is set" warning, stop
+and set the platform before building.
 
-The files listed below are delivered automatically: `kit.py guidelines --role
-<role>` includes the platform bundle alongside the role's own guidelines. Do not
-read them from `guidelines/` directly. If a snapshot opens with a "no platform is
-set" warning, stop and set the platform before building.
+| | MediChannel | HTML5 (M3 / MedPeer / CareNet / ThirdParty) |
+|---|---|---|
+| Document type | XHTML 1.0 Strict, internal, 960 px | HTML5, external |
+| Guideline folder | `guidelines/medichannel/` | `guidelines/m3/` |
+| Font-size unit | `px` | `rem` |
+| QA workflow | `guidelines/medichannel/qa/` (+ `guidelines/global/qa/`) | `guidelines/global/qa/` only |
 
-**MediChannel (XHTML 1.0 Strict, internal, 960 px)**
-
-Apply all three of the following base guidelines together:
-
-- `guidelines/base/xhtml-coding-rules.md` — XHTML 1.0 Strict syntax and CSS rules
-- `guidelines/base/medichannel-delivery-standards.md` — file size, template,
-  editable area, jQuery version, and delivery requirements
-- `guidelines/base/xhtml-vs-html5-reference.md` — reference for any XHTML/HTML5
-  conflicts encountered during build or QA
-
-The QA workflow for MediChannel (Design QA, Content QA, and Coding QA) is
-documented in `guidelines/base/az-html-qa-guide.md`.
-
-Do not apply `html-coding-rules.md` to MediChannel work.
-
-**M3.com / MedPeer and CareNet (HTML5, external)**
-
-Apply:
-
-- `guidelines/base/html-coding-rules.md` — HTML5 coding and CSS rules
-
-Do not apply XHTML rules or MediChannel delivery requirements to these projects.
+Do not cross-apply one channel's `coding/` or `qa/` rules to the other.

@@ -44,9 +44,9 @@
 
 ## CSS component architecture
 
-Baseline CSS naming, value, and hygiene rules live in the platform coding-rules
-file (`html-coding-rules.md` or `xhtml-coding-rules.md`), delivered alongside
-this file. The rules below are builder-specific and complement them.
+Baseline CSS naming, value, and hygiene rules live in `guidelines/global/coding/*.md`,
+delivered alongside this file, plus the active channel's `guidelines/<channel>/coding/*.md`
+delta (e.g. font-size unit). The rules below are builder-specific and complement them.
 
 - HTML sections are independently replaceable DOM units for repair targeting.
   CSS components are shared classes used across multiple sections. These are
@@ -67,4 +67,4 @@ this file. The rules below are builder-specific and complement them.
   that adds or renames a component class updates it.
 - **MediChannel exception:** use `px` for all font sizes; `rem` is unreliable
   because the client template controls the root font-size. See
-  `medichannel-delivery-standards.md §4-2`.
+  `guidelines/medichannel/coding/deviations.md`.

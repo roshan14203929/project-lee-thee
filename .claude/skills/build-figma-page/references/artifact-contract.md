@@ -1,5 +1,7 @@
 # Artifact contract
 
+**HTML5 / M3 (flat)** — `project.json.platform` is `html5`:
+
 ```text
 projects/<project>/
   project.json
@@ -57,6 +59,21 @@ projects/<project>/
       release.json
 ```
 
+**MediChannel (nested AEM JCR tree)** — `project.json.platform` is `medichannel`;
+`{contentRoot}`, `{damRoot}`, `{cssRoot}` come from `project.json.delivery`,
+`{articlePath}` from `page.json.articlePath` (see `commands.md`). Every
+`candidates/candidate-###/`, `generated/`, `current/`, and `releases/v-###/site/`
+payload below shares this same shape instead of the flat one:
+
+```text
+    candidates/candidate-###/ (and generated/, current/, releases/v-###/site/)
+      candidate.json                                 (candidate dir only)
+      content/{contentRoot}/{articlePath}.html
+      content/dam/{damRoot}/{articlePath}/*           (image assets)
+      etc/designs/code/{cssRoot}/{articlePath}/base.css
+      etc/designs/code/{cssRoot}/{articlePath}/page.css
+```
+
 ## Pattern map
 
 `spec/pattern-map.json` is a mechanical derivation of `spec.json`, generated
@@ -92,7 +109,8 @@ Candidates record `projectId`, `pageId`, `runId`, `sourceId`, and optional
 `baseSourceId` for explicit provenance; they do not copy source extraction data.
 `candidate.json` is lifecycle metadata, not deployable output. Candidate,
 generated, current, and release site payloads contain exactly `images/`,
-`index.html`, `base.css`, and `page.css`; source snapshots continue to use
+`index.html`, `base.css`, and `page.css` for HTML5/M3 — the nested MediChannel
+shape above for `medichannel` projects; source snapshots continue to use
 `assets/` for immutable Figma exports.
 
 Write `spec/spec.json` with:

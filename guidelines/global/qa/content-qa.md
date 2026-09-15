@@ -10,6 +10,9 @@
   informative.
 - Cite the content item identifier and relevant output selector for every
   failure.
+- Unreplaced placeholder copy is a blocker, not an info note: breadcrumb links
+  to `/test.html`, approval-code placeholders like `JP-○○○○`, and obviously
+  temporary text (`Lorem`, `TODO`, `PLACEHOLDER`, `ここに入る`).
 
 ## Copy Accuracy
 
@@ -19,6 +22,8 @@
   correctly placed.
 - Superscript, subscript, and special characters (®, ™, †) render correctly
   in the browser.
+- On Japanese pages, verify full-width vs half-width numerals and punctuation
+  match the design.
 
 ## Document References
 

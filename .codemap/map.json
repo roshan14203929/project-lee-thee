@@ -3,12 +3,12 @@
   "project": "Layerlift Agent Kit",
   "description": "A local, multi-agent Figma-to-HTML workflow with immutable run state and four independent release gates.",
   "configHash": "f05355c49d4a2279e6c939030f919829ea6f596e8696b08268d4db21f9262df8",
-  "fingerprint": "c0b91b1da84ba773e7c0606dd3c23a00d6bbdc236749762491b48bb88b32d299",
+  "fingerprint": "fc1a37c94a23830f7bece3efed480730aa96728812cd59c144eb7fe2430849b4",
   "totals": {
-    "files": 86,
-    "lines": 9108,
+    "files": 100,
+    "lines": 9079,
     "modules": 9,
-    "uncovered": 0,
+    "uncovered": 2,
     "overlaps": 0
   },
   "entryPoints": [
@@ -49,8 +49,8 @@
         "state-controller"
       ],
       "externalDependencies": [],
-      "fileCount": 20,
-      "lines": 2330,
+      "fileCount": 29,
+      "lines": 1560,
       "files": [
         ".gitignore",
         ".mcp.json",
@@ -58,18 +58,27 @@
         "CLAUDE.md",
         "PROJECT_REFERENCE.md",
         "README.md",
-        "guidelines/base/accessibility-qa.md",
-        "guidelines/base/az-html-qa-guide.md",
-        "guidelines/base/builder.md",
-        "guidelines/base/content-qa.md",
-        "guidelines/base/extractor.md",
-        "guidelines/base/html-coding-rules.md",
-        "guidelines/base/medichannel-delivery-standards.md",
-        "guidelines/base/technical-qa.md",
-        "guidelines/base/ui-qa.md",
-        "guidelines/base/xhtml-coding-rules.md",
-        "guidelines/base/xhtml-vs-html5-reference.md",
-        "guidelines/global.md",
+        "guidelines/builder.md",
+        "guidelines/extractor.md",
+        "guidelines/global/coding/assets-media.md",
+        "guidelines/global/coding/base-css-template.md",
+        "guidelines/global/coding/css.md",
+        "guidelines/global/coding/html.md",
+        "guidelines/global/general-rules.md",
+        "guidelines/global/qa/accessibility-qa.md",
+        "guidelines/global/qa/content-qa.md",
+        "guidelines/global/qa/technical-qa.md",
+        "guidelines/global/qa/ui-qa.md",
+        "guidelines/m3/coding/html5-delta.md",
+        "guidelines/m3/general-rules.md",
+        "guidelines/m3/qa/qa-findings-reference.md",
+        "guidelines/medichannel/coding/design-token-consistency.md",
+        "guidelines/medichannel/coding/deviations.md",
+        "guidelines/medichannel/coding/xhtml-syntax.md",
+        "guidelines/medichannel/coding/xhtml-vs-html5-reference.md",
+        "guidelines/medichannel/general-rules.md",
+        "guidelines/medichannel/qa/coding-qa.md",
+        "guidelines/medichannel/qa/qa-findings-reference.md",
         "requirements-dev.txt",
         "requirements.txt"
       ]
@@ -109,7 +118,7 @@
       ],
       "externalDependencies": [],
       "fileCount": 10,
-      "lines": 931,
+      "lines": 1058,
       "files": [
         ".claude/skills/build-figma-page/SKILL.md",
         ".claude/skills/build-figma-page/agents/openai.yaml",
@@ -192,8 +201,8 @@
         "validation-and-tests"
       ],
       "externalDependencies": [],
-      "fileCount": 11,
-      "lines": 334,
+      "fileCount": 12,
+      "lines": 427,
       "files": [
         ".claude/agents/accessibility-reviewer.md",
         ".claude/agents/content-reviewer.md",
@@ -205,7 +214,8 @@
         ".claude/agents/ui-reviewer.md",
         ".claude/settings.json",
         ".claude/settings.local.json",
-        ".claude/state/.gitkeep"
+        ".claude/state/.gitkeep",
+        ".claude/state/active-run.json"
       ]
     },
     {
@@ -250,7 +260,7 @@
         "urllib.parse"
       ],
       "fileCount": 3,
-      "lines": 902,
+      "lines": 995,
       "files": [
         "scripts/kit.py",
         "scripts/log-agent-event.py",
@@ -282,10 +292,12 @@
         "validation-and-tests"
       ],
       "externalDependencies": [],
-      "fileCount": 10,
-      "lines": 469,
+      "fileCount": 12,
+      "lines": 559,
       "files": [
         "schemas/content-inventory.schema.json",
+        "schemas/css-map.schema.json",
+        "schemas/pattern-map.schema.json",
         "schemas/qa-check.schema.json",
         "schemas/run.schema.json",
         "schemas/source-patch.schema.json",
@@ -361,7 +373,7 @@
         "urllib.parse"
       ],
       "fileCount": 11,
-      "lines": 2142,
+      "lines": 2247,
       "files": [
         "scripts/browser-summary.py",
         "scripts/create-qa-docs.py",
@@ -422,7 +434,7 @@
         "sys"
       ],
       "fileCount": 17,
-      "lines": 1412,
+      "lines": 1641,
       "files": [
         "scripts/validate-kit.py",
         "tests/.pytest_cache/.gitignore",
@@ -472,15 +484,18 @@
       "files": []
     }
   ],
-  "uncoveredFiles": [],
+  "uncoveredFiles": [
+    ".env",
+    ".vscode/settings.json"
+  ],
   "overlaps": [],
   "warnings": [],
   "files": [
     {
       "path": ".claude/agents/accessibility-reviewer.md",
-      "bytes": 1498,
-      "lines": 28,
-      "hash": "3e0a6cf2e276ba39",
+      "bytes": 1737,
+      "lines": 31,
+      "hash": "ef44b4ab6ab6f644",
       "oversized": false,
       "modules": [
         "host-adapters"
@@ -489,9 +504,9 @@
     },
     {
       "path": ".claude/agents/content-reviewer.md",
-      "bytes": 1257,
-      "lines": 21,
-      "hash": "8c94ee595ab700c7",
+      "bytes": 1521,
+      "lines": 25,
+      "hash": "8ae85d469a32c39c",
       "oversized": false,
       "modules": [
         "host-adapters"
@@ -502,7 +517,7 @@
       "path": ".claude/agents/figma-extractor.md",
       "bytes": 2609,
       "lines": 42,
-      "hash": "9ebe7127f7c5b9db",
+      "hash": "b959ddd69f25067f",
       "oversized": false,
       "modules": [
         "host-adapters"
@@ -511,9 +526,9 @@
     },
     {
       "path": ".claude/agents/page-builder.md",
-      "bytes": 4190,
-      "lines": 75,
-      "hash": "fe1984af59847b92",
+      "bytes": 6730,
+      "lines": 112,
+      "hash": "f04d869a6f9050c9",
       "oversized": false,
       "modules": [
         "host-adapters"
@@ -522,9 +537,9 @@
     },
     {
       "path": ".claude/agents/release-verifier.md",
-      "bytes": 892,
-      "lines": 21,
-      "hash": "3b12d5636894cc2b",
+      "bytes": 1234,
+      "lines": 25,
+      "hash": "bc99aa00b4f0f560",
       "oversized": false,
       "modules": [
         "host-adapters"
@@ -533,9 +548,9 @@
     },
     {
       "path": ".claude/agents/repair-builder.md",
-      "bytes": 1638,
-      "lines": 26,
-      "hash": "a1baaca6a415436a",
+      "bytes": 2596,
+      "lines": 42,
+      "hash": "ae866838c1e2b0e5",
       "oversized": false,
       "modules": [
         "host-adapters"
@@ -544,9 +559,9 @@
     },
     {
       "path": ".claude/agents/technical-reviewer.md",
-      "bytes": 927,
-      "lines": 19,
-      "hash": "929328bad1597ff5",
+      "bytes": 1161,
+      "lines": 22,
+      "hash": "cc87074a8101633f",
       "oversized": false,
       "modules": [
         "host-adapters"
@@ -555,9 +570,9 @@
     },
     {
       "path": ".claude/agents/ui-reviewer.md",
-      "bytes": 2219,
-      "lines": 36,
-      "hash": "9550a1fb0f91ed48",
+      "bytes": 2502,
+      "lines": 40,
+      "hash": "b6f633441620d591",
       "oversized": false,
       "modules": [
         "host-adapters"
@@ -566,9 +581,9 @@
     },
     {
       "path": ".claude/settings.json",
-      "bytes": 488,
-      "lines": 24,
-      "hash": "f3d7ccc04b75e0fc",
+      "bytes": 2583,
+      "lines": 37,
+      "hash": "e19c76ebf4de7b4b",
       "oversized": false,
       "modules": [
         "host-adapters"
@@ -588,9 +603,9 @@
     },
     {
       "path": ".claude/skills/build-figma-page/SKILL.md",
-      "bytes": 6409,
-      "lines": 106,
-      "hash": "9079e1611c039e9e",
+      "bytes": 8098,
+      "lines": 149,
+      "hash": "0cc82a46abbeaa6d",
       "oversized": false,
       "modules": [
         "figma-workflow-skill"
@@ -610,9 +625,9 @@
     },
     {
       "path": ".claude/skills/build-figma-page/references/artifact-contract.md",
-      "bytes": 7070,
-      "lines": 176,
-      "hash": "56ec73b213107ad3",
+      "bytes": 8912,
+      "lines": 212,
+      "hash": "0559241f3e7941e9",
       "oversized": false,
       "modules": [
         "figma-workflow-skill"
@@ -621,9 +636,9 @@
     },
     {
       "path": ".claude/skills/build-figma-page/references/commands.md",
-      "bytes": 8249,
-      "lines": 116,
-      "hash": "c13bda70dfa2ea46",
+      "bytes": 9724,
+      "lines": 134,
+      "hash": "a7779dfaff78c6c7",
       "oversized": false,
       "modules": [
         "figma-workflow-skill"
@@ -632,9 +647,9 @@
     },
     {
       "path": ".claude/skills/build-figma-page/references/design-skills.md",
-      "bytes": 711,
-      "lines": 18,
-      "hash": "e3c56384e1e82b8b",
+      "bytes": 508,
+      "lines": 11,
+      "hash": "5461714edae987e2",
       "oversized": false,
       "modules": [
         "figma-workflow-skill"
@@ -665,9 +680,9 @@
     },
     {
       "path": ".claude/skills/build-figma-page/references/orchestration.md",
-      "bytes": 9281,
-      "lines": 190,
-      "hash": "c5eca14886c398f8",
+      "bytes": 10682,
+      "lines": 227,
+      "hash": "30f33d8a3cc94eda",
       "oversized": false,
       "modules": [
         "figma-workflow-skill"
@@ -676,9 +691,9 @@
     },
     {
       "path": ".claude/skills/build-figma-page/references/qa-contract.md",
-      "bytes": 4017,
+      "bytes": 4031,
       "lines": 79,
-      "hash": "045fed9a86ac1539",
+      "hash": "120061eaa14dd97b",
       "oversized": false,
       "modules": [
         "figma-workflow-skill"
@@ -793,6 +808,26 @@
       "imports": []
     },
     {
+      "path": ".claude/state/active-run.json",
+      "bytes": 195,
+      "lines": 9,
+      "hash": "501252a6ad5636cd",
+      "oversized": false,
+      "modules": [
+        "host-adapters"
+      ],
+      "imports": []
+    },
+    {
+      "path": ".env",
+      "bytes": 59,
+      "lines": 1,
+      "hash": "6bc749a7bb6498f6",
+      "oversized": false,
+      "modules": [],
+      "imports": []
+    },
+    {
       "path": ".gitignore",
       "bytes": 401,
       "lines": 28,
@@ -815,10 +850,19 @@
       "imports": []
     },
     {
+      "path": ".vscode/settings.json",
+      "bytes": 42,
+      "lines": 3,
+      "hash": "faa404edefd7a7c0",
+      "oversized": false,
+      "modules": [],
+      "imports": []
+    },
+    {
       "path": "AGENTS.md",
-      "bytes": 4032,
-      "lines": 79,
-      "hash": "b2cb84a1ce55d51c",
+      "bytes": 4157,
+      "lines": 80,
+      "hash": "f50bb59bb035c5f7",
       "oversized": false,
       "modules": [
         "governance"
@@ -838,9 +882,9 @@
     },
     {
       "path": "PROJECT_REFERENCE.md",
-      "bytes": 11352,
-      "lines": 210,
-      "hash": "73f8b62ad57bc4a2",
+      "bytes": 12740,
+      "lines": 230,
+      "hash": "fe3e64ab911fa15f",
       "oversized": false,
       "modules": [
         "governance"
@@ -849,9 +893,9 @@
     },
     {
       "path": "README.md",
-      "bytes": 3941,
-      "lines": 103,
-      "hash": "9bc5a4f4311f85e4",
+      "bytes": 4192,
+      "lines": 105,
+      "hash": "733c2bb191077d9d",
       "oversized": false,
       "modules": [
         "governance"
@@ -859,10 +903,10 @@
       "imports": []
     },
     {
-      "path": "guidelines/base/accessibility-qa.md",
-      "bytes": 470,
-      "lines": 9,
-      "hash": "2889cbc85114ea01",
+      "path": "guidelines/builder.md",
+      "bytes": 4338,
+      "lines": 71,
+      "hash": "5f59a424835b111b",
       "oversized": false,
       "modules": [
         "governance"
@@ -870,43 +914,10 @@
       "imports": []
     },
     {
-      "path": "guidelines/base/az-html-qa-guide.md",
-      "bytes": 11913,
-      "lines": 229,
-      "hash": "ec62677ff4989477",
-      "oversized": false,
-      "modules": [
-        "governance"
-      ],
-      "imports": []
-    },
-    {
-      "path": "guidelines/base/builder.md",
-      "bytes": 3508,
-      "lines": 57,
-      "hash": "72148e3650c0ecc7",
-      "oversized": false,
-      "modules": [
-        "governance"
-      ],
-      "imports": []
-    },
-    {
-      "path": "guidelines/base/content-qa.md",
-      "bytes": 1039,
-      "lines": 27,
-      "hash": "1df8b7a721257a50",
-      "oversized": false,
-      "modules": [
-        "governance"
-      ],
-      "imports": []
-    },
-    {
-      "path": "guidelines/base/extractor.md",
-      "bytes": 4607,
+      "path": "guidelines/extractor.md",
+      "bytes": 4525,
       "lines": 83,
-      "hash": "3e21d5873cb91489",
+      "hash": "4582aeafb4e7d4f4",
       "oversized": false,
       "modules": [
         "governance"
@@ -914,10 +925,10 @@
       "imports": []
     },
     {
-      "path": "guidelines/base/html-coding-rules.md",
-      "bytes": 7202,
-      "lines": 149,
-      "hash": "47009ef6833763b3",
+      "path": "guidelines/global/coding/assets-media.md",
+      "bytes": 4010,
+      "lines": 65,
+      "hash": "35650e33e3ecd724",
       "oversized": false,
       "modules": [
         "governance"
@@ -925,10 +936,10 @@
       "imports": []
     },
     {
-      "path": "guidelines/base/medichannel-delivery-standards.md",
-      "bytes": 8394,
-      "lines": 221,
-      "hash": "818e9ae53b876531",
+      "path": "guidelines/global/coding/base-css-template.md",
+      "bytes": 4881,
+      "lines": 136,
+      "hash": "b9febadec6f9f9af",
       "oversized": false,
       "modules": [
         "governance"
@@ -936,10 +947,10 @@
       "imports": []
     },
     {
-      "path": "guidelines/base/technical-qa.md",
-      "bytes": 1063,
-      "lines": 24,
-      "hash": "7d0886c29e8c81b8",
+      "path": "guidelines/global/coding/css.md",
+      "bytes": 4366,
+      "lines": 56,
+      "hash": "86c7b31571a84e8d",
       "oversized": false,
       "modules": [
         "governance"
@@ -947,10 +958,10 @@
       "imports": []
     },
     {
-      "path": "guidelines/base/ui-qa.md",
-      "bytes": 2586,
-      "lines": 59,
-      "hash": "f81fec4cc560e2c1",
+      "path": "guidelines/global/coding/html.md",
+      "bytes": 2404,
+      "lines": 34,
+      "hash": "42427d432812ec14",
       "oversized": false,
       "modules": [
         "governance"
@@ -958,10 +969,10 @@
       "imports": []
     },
     {
-      "path": "guidelines/base/xhtml-coding-rules.md",
-      "bytes": 9725,
-      "lines": 329,
-      "hash": "41c8e494fc5ff1c7",
+      "path": "guidelines/global/general-rules.md",
+      "bytes": 8319,
+      "lines": 161,
+      "hash": "761e558d69f52250",
       "oversized": false,
       "modules": [
         "governance"
@@ -969,10 +980,10 @@
       "imports": []
     },
     {
-      "path": "guidelines/base/xhtml-vs-html5-reference.md",
-      "bytes": 25802,
-      "lines": 524,
-      "hash": "94fe9217ca552963",
+      "path": "guidelines/global/qa/accessibility-qa.md",
+      "bytes": 858,
+      "lines": 14,
+      "hash": "e27eab64afbc8230",
       "oversized": false,
       "modules": [
         "governance"
@@ -980,10 +991,142 @@
       "imports": []
     },
     {
-      "path": "guidelines/global.md",
-      "bytes": 8665,
-      "lines": 174,
-      "hash": "9bd649c27c482dcd",
+      "path": "guidelines/global/qa/content-qa.md",
+      "bytes": 1370,
+      "lines": 32,
+      "hash": "9321c105710bccfc",
+      "oversized": false,
+      "modules": [
+        "governance"
+      ],
+      "imports": []
+    },
+    {
+      "path": "guidelines/global/qa/technical-qa.md",
+      "bytes": 1497,
+      "lines": 30,
+      "hash": "4f95732033f490fa",
+      "oversized": false,
+      "modules": [
+        "governance"
+      ],
+      "imports": []
+    },
+    {
+      "path": "guidelines/global/qa/ui-qa.md",
+      "bytes": 2710,
+      "lines": 58,
+      "hash": "96e050bdb32d6ff0",
+      "oversized": false,
+      "modules": [
+        "governance"
+      ],
+      "imports": []
+    },
+    {
+      "path": "guidelines/m3/coding/html5-delta.md",
+      "bytes": 936,
+      "lines": 14,
+      "hash": "4dad228547a22cea",
+      "oversized": false,
+      "modules": [
+        "governance"
+      ],
+      "imports": []
+    },
+    {
+      "path": "guidelines/m3/general-rules.md",
+      "bytes": 593,
+      "lines": 16,
+      "hash": "946fa3938872e4d0",
+      "oversized": false,
+      "modules": [
+        "governance"
+      ],
+      "imports": []
+    },
+    {
+      "path": "guidelines/m3/qa/qa-findings-reference.md",
+      "bytes": 2030,
+      "lines": 21,
+      "hash": "3381fb171f9167a1",
+      "oversized": false,
+      "modules": [
+        "governance"
+      ],
+      "imports": []
+    },
+    {
+      "path": "guidelines/medichannel/coding/design-token-consistency.md",
+      "bytes": 740,
+      "lines": 9,
+      "hash": "5a45cf8ae56535b0",
+      "oversized": false,
+      "modules": [
+        "governance"
+      ],
+      "imports": []
+    },
+    {
+      "path": "guidelines/medichannel/coding/deviations.md",
+      "bytes": 2625,
+      "lines": 49,
+      "hash": "6a06c2f96871be10",
+      "oversized": false,
+      "modules": [
+        "governance"
+      ],
+      "imports": []
+    },
+    {
+      "path": "guidelines/medichannel/coding/xhtml-syntax.md",
+      "bytes": 3305,
+      "lines": 77,
+      "hash": "1b295053421aee63",
+      "oversized": false,
+      "modules": [
+        "governance"
+      ],
+      "imports": []
+    },
+    {
+      "path": "guidelines/medichannel/coding/xhtml-vs-html5-reference.md",
+      "bytes": 3709,
+      "lines": 85,
+      "hash": "676accd4c96687eb",
+      "oversized": false,
+      "modules": [
+        "governance"
+      ],
+      "imports": []
+    },
+    {
+      "path": "guidelines/medichannel/general-rules.md",
+      "bytes": 2739,
+      "lines": 46,
+      "hash": "25db8de3e84bf9ac",
+      "oversized": false,
+      "modules": [
+        "governance"
+      ],
+      "imports": []
+    },
+    {
+      "path": "guidelines/medichannel/qa/coding-qa.md",
+      "bytes": 1224,
+      "lines": 16,
+      "hash": "aa2d21ea1fb8fee5",
+      "oversized": false,
+      "modules": [
+        "governance"
+      ],
+      "imports": []
+    },
+    {
+      "path": "guidelines/medichannel/qa/qa-findings-reference.md",
+      "bytes": 2073,
+      "lines": 19,
+      "hash": "0610c31eef561814",
       "oversized": false,
       "modules": [
         "governance"
@@ -1017,6 +1160,28 @@
       "bytes": 1604,
       "lines": 78,
       "hash": "a3fca78d9a74fee7",
+      "oversized": false,
+      "modules": [
+        "artifact-contracts"
+      ],
+      "imports": []
+    },
+    {
+      "path": "schemas/css-map.schema.json",
+      "bytes": 1372,
+      "lines": 31,
+      "hash": "2ef417efe79efa87",
+      "oversized": false,
+      "modules": [
+        "artifact-contracts"
+      ],
+      "imports": []
+    },
+    {
+      "path": "schemas/pattern-map.schema.json",
+      "bytes": 2023,
+      "lines": 59,
+      "hash": "26050df1d7c66fb4",
       "oversized": false,
       "modules": [
         "artifact-contracts"
@@ -1112,9 +1277,9 @@
     },
     {
       "path": "scripts/create-qa-docs.py",
-      "bytes": 22422,
+      "bytes": 22481,
       "lines": 557,
-      "hash": "8cc1c088a4c9369f",
+      "hash": "fbdad97ee7fad410",
       "oversized": false,
       "modules": [
         "render-and-qa"
@@ -1228,9 +1393,9 @@
     },
     {
       "path": "scripts/kit.py",
-      "bytes": 41634,
-      "lines": 532,
-      "hash": "b888a00c918ac69b",
+      "bytes": 47412,
+      "lines": 625,
+      "hash": "b408b55bac5b3c32",
       "oversized": false,
       "modules": [
         "state-controller"
@@ -1344,9 +1509,9 @@
     },
     {
       "path": "scripts/populate-qa-agency15-316.py",
-      "bytes": 30622,
+      "bytes": 30681,
       "lines": 712,
-      "hash": "275f55d40a2e9d2f",
+      "hash": "dfd02a003db7c95a",
       "oversized": false,
       "modules": [
         "render-and-qa"
@@ -1532,9 +1697,9 @@
     },
     {
       "path": "scripts/verify-output.py",
-      "bytes": 9789,
-      "lines": 176,
-      "hash": "e274606d6aad49aa",
+      "bytes": 15069,
+      "lines": 281,
+      "hash": "74aeaf28e68724d9",
       "oversized": false,
       "modules": [
         "render-and-qa"
@@ -1969,9 +2134,9 @@
     },
     {
       "path": "tests/test_guideline_snapshot.py",
-      "bytes": 9847,
-      "lines": 209,
-      "hash": "8240019782ac58dc",
+      "bytes": 10790,
+      "lines": 232,
+      "hash": "929ef7f4aaf0ab8f",
       "oversized": false,
       "modules": [
         "validation-and-tests"
@@ -2001,9 +2166,9 @@
     },
     {
       "path": "tests/test_source_reuse.py",
-      "bytes": 13942,
-      "lines": 229,
-      "hash": "db931ed35c1b8408",
+      "bytes": 18971,
+      "lines": 317,
+      "hash": "29d4419a82aec62d",
       "oversized": false,
       "modules": [
         "validation-and-tests"
@@ -2061,9 +2226,9 @@
     },
     {
       "path": "tests/test_state_controller.py",
-      "bytes": 5859,
-      "lines": 96,
-      "hash": "76809283e81a57cc",
+      "bytes": 13252,
+      "lines": 214,
+      "hash": "666d7b582475ea55",
       "oversized": false,
       "modules": [
         "validation-and-tests"

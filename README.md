@@ -78,12 +78,14 @@ pytest
 
 ## Configuration
 
-- `guidelines/global.md`: quality gates and workflow invariants.
-- `guidelines/base/*.md`: role-specific defaults.
+- `guidelines/global/general-rules.md`: quality gates and workflow invariants.
+- `guidelines/global/coding/*.md`, `guidelines/global/qa/*.md`: channel-agnostic role defaults.
+- `guidelines/medichannel/` / `guidelines/m3/`: channel deltas only (`general-rules.md`, `coding/*.md`, `qa/*.md`).
+- `guidelines/builder.md`, `guidelines/extractor.md`: agent-role files.
 - `projects/<project>/guidelines/*.md`: project deltas.
 - `projects/<project>/pages/<page>/guidelines/*.md`: page deltas.
 
-Resolution order is global, base, project, then page. Every run stores the
+Resolution order is global, channel, project, then page. Every run stores the
 effective snapshot and its hash.
 
 The controller also enforces passing static/browser/visual evidence before a

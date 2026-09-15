@@ -80,14 +80,26 @@ taste-skill sections listed in `design-skills.md` (brief inference, guardrails,
 AI tells, pre-flight check) -- not the whole 87 KB file, most of which
 recommends frameworks and installs this workflow forbids.
 
-Produce exactly `images/`, `index.html`, `base.css`, and `page.css` as
-deployable output. Keep global rules in `base.css`, page/component rules in
-`page.css`, and all local assets in `images/`. Use exact source copy, semantic
-elements, native controls, maintainable CSS, and responsive behavior derived
-from supplied variants. Keep each semantic section's HTML independently
-replaceable (self-contained `<section>` blocks with clear IDs); shared CSS
-component classes may span sections — the repair-builder scopes repairs to the
-HTML section, not the CSS.
+**HTML5/M3:** produce exactly `images/`, `index.html`, `base.css`, and
+`page.css` as deployable output. Keep global rules in `base.css`,
+page/component rules in `page.css`, and all local assets in `images/`.
+
+**MediChannel:** the output is the nested AEM JCR tree in `artifact-contract.md`,
+not the flat shape. Read the project's `delivery` fields (`contentRoot`,
+`damRoot`, `cssRoot`) and the page's `articlePath` via `kit.py status <project>
+<page>` before writing anything. Write the article HTML to
+`content/{contentRoot}/{articlePath}.html`, CSS to
+`etc/designs/code/{cssRoot}/{articlePath}/{base.css,page.css}`, and images to
+`content/dam/{damRoot}/{articlePath}/`. Every image/CSS/link reference in the
+HTML is document-root-absolute into those same trees (e.g.
+`/content/dam/{damRoot}/{articlePath}/foo.png`) — never a relative `images/...`
+path. `new-candidate` pre-creates the DAM asset directory as a starting point.
+
+Use exact source copy, semantic elements, native controls, maintainable CSS,
+and responsive behavior derived from supplied variants. Keep each semantic
+section's HTML independently replaceable (self-contained `<section>` blocks
+with clear IDs); shared CSS component classes may span sections — the
+repair-builder scopes repairs to the HTML section, not the CSS.
 
 Do not edit run state, QA, generated output, current output, or releases. Do not
 use frameworks, remote scripts, remote fonts, trackers, model APIs, or

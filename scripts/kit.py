@@ -56,12 +56,31 @@ def rm(a):
  else: a.unlink(missing_ok=True)
 def numbered(d,p):
  n=[int(m.group(1)) for x in Path(d).glob(f'{p}-*') if x.is_dir() and (m:=re.fullmatch(re.escape(p)+r'-(\d+)',x.name))]; return f'{p}-{max(n,default=0)+1:03d}'
-def payload(d,label,ignore=()):
+def jcr_paths(spec):
+ ap=Path(spec['articlePath']);html_rel=Path('content')/spec['contentRoot']/f"{spec['articlePath']}.html";assets_rel=Path('content')/'dam'/spec['damRoot']/ap;css_dir=Path('etc')/'designs'/'code'/spec['cssRoot']/ap
+ return html_rel,assets_rel,css_dir/'base.css',css_dir/'page.css',css_dir
+def payload(d,label,spec,ignore=('candidate.json','structural-check')):
  d=Path(d)
- for x in PAYLOAD:
-  if not(d/x).exists():bad(f'{label} is missing {x}.')
- found=sorted(x.name for x in d.iterdir() if x.name not in ignore)
- if found!=PAYLOAD:bad(f"{label} must contain exactly: {', '.join(PAYLOAD)}. Found: {', '.join(found)}.")
+ if spec['kind']=='flat':
+  for x in PAYLOAD:
+   if not(d/x).exists():bad(f'{label} is missing {x}.')
+  found=sorted(x.name for x in d.iterdir() if x.name not in ignore)
+  if found!=PAYLOAD:bad(f"{label} must contain exactly: {', '.join(PAYLOAD)}. Found: {', '.join(found)}.")
+  return
+ html_rel,assets_rel,base_rel,page_rel,css_dir=jcr_paths(spec)
+ for rel,what in ((html_rel,'article HTML'),(base_rel,'base.css'),(page_rel,'page.css')):
+  if not (d/rel).is_file():bad(f'{label} is missing {rel.as_posix()} ({what}).')
+ if not (d/assets_rel).is_dir():bad(f'{label} is missing {assets_rel.as_posix()}/ (DAM asset directory).')
+ allowed_files={html_rel,base_rel,page_rel};allowed_dirs={p for rel in (html_rel,assets_rel,base_rel,page_rel) for p in rel.parents if p!=Path('.')}|{assets_rel}
+ stray=[]
+ for x in sorted(d.rglob('*')):
+  rel=x.relative_to(d)
+  if rel.parts[0] in ignore:continue
+  if rel==assets_rel or assets_rel in rel.parents:continue
+  if x.is_dir():
+   if rel not in allowed_dirs:stray.append(rel.as_posix()+'/')
+  elif rel not in allowed_files:stray.append(rel.as_posix())
+ if stray:bad(f"{label} contains unexpected entries not part of the JCR payload: {', '.join(stray)}.")
 def figurl(v):
  q=urlparse(str(v));
  if q.scheme!='https' or not(q.hostname=='figma.com' or (q.hostname or '').endswith('.figma.com')): bad(f'Figma URL must use HTTPS on figma.com: {v}')
@@ -110,26 +129,52 @@ def transition(a,b,c,status,extra={}):
 def checkplatform(v):
  if v is None or v is True:return None
  v=str(v).strip().lower()
- if v not in PLATFORMS:bad(f"Unknown platform: {v}. Use one of: {', '.join(sorted(PLATFORMS))}.")
+ if v not in PLATFORM_DIR:bad(f"Unknown platform: {v}. Use one of: {', '.join(sorted(PLATFORM_DIR))}.")
  return v
+DEFAULT_MEDICHANNEL_DELIVERY={'contentRoot':'PhysicianServices/Japan/048-MediChannel/ja/jp','damRoot':'physician-services/Japan','cssRoot':'physician-services/japan/css'}
+PATHFRAG=re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*$')
+def pathfrag(v,label):
+ v=str(v).strip()
+ if not v or not PATHFRAG.fullmatch(v):bad(f"Invalid {label}: {v or '<empty>'}")
+ return v
+DELIVERY_FLAGS=(('content-root','contentRoot'),('dam-root','damRoot'),('css-root','cssRoot'))
+def delivery_overrides(o):
+ out={}
+ for flag,key in DELIVERY_FLAGS:
+  if flag in o:
+   if o[flag] is True:bad(f"--{flag} requires a value.")
+   out[key]=pathfrag(o[flag],f'--{flag}')
+ return out
 def init_project(a,name,o=None):
  d=prj(a)
  if d.exists(): bad(f'Project already exists: {a}')
- pf=checkplatform((o or {}).get('platform'))
- t=now();(d/'guidelines').mkdir(parents=True);(d/'pages').mkdir();write(d/'project.json',{'id':a,'name':name or a,'description':'','platform':pf,'createdAt':t,'updatedAt':t});return {'projectId':a,'root':str(d),'platform':pf}
+ o=o or {};pf=checkplatform(o.get('platform'));overrides=delivery_overrides(o)
+ if overrides and pf!='medichannel':bad('--content-root/--dam-root/--css-root require --platform medichannel.')
+ delivery={**DEFAULT_MEDICHANNEL_DELIVERY,**overrides} if pf=='medichannel' else None
+ t=now();(d/'guidelines').mkdir(parents=True);(d/'pages').mkdir();write(d/'project.json',{'id':a,'name':name or a,'description':'','platform':pf,'delivery':delivery,'createdAt':t,'updatedAt':t});return {'projectId':a,'root':str(d),'platform':pf,'delivery':delivery}
 def setplatform(a,o):
  f=prj(a)/'project.json'
  if not f.exists():bad(f'Project does not exist: {a}')
  pf=checkplatform(o.get('platform'))
- if pf is None:bad(f"set-platform requires --platform <{'|'.join(sorted(PLATFORMS))}>.")
- update(f,lambda x:{**x,'platform':pf,'updatedAt':now()});return {'projectId':a,'platform':pf,'guidelines':sorted(f"guidelines/base/{n}" for n in platform_files('builder',pf)|platform_files('ui',pf))}
-def init_page(a,b,name):
+ if pf is None:bad(f"set-platform requires --platform <{'|'.join(sorted(PLATFORM_DIR))}>.")
+ overrides=delivery_overrides(o)
+ if overrides and pf!='medichannel':bad('--content-root/--dam-root/--css-root require --platform medichannel.')
+ def fn(x):
+  delivery={**DEFAULT_MEDICHANNEL_DELIVERY,**(x.get('delivery') or {}),**overrides} if pf=='medichannel' else None
+  return {**x,'platform':pf,'delivery':delivery,'updatedAt':now()}
+ v=update(f,fn);return {'projectId':a,'platform':pf,'delivery':v.get('delivery'),'guidelines':sorted({p.relative_to(ROOT).as_posix() for p in platform_files('builder',pf)+platform_files('ui',pf)})}
+def init_page(a,b,name,o=None):
  require_page_base=prj(a)
  if not (require_page_base/'project.json').exists(): bad(f'Project does not exist: {a}')
- d=page(a,b)
+ o=o or {};d=page(a,b)
  if d.exists():bad(f'Page already exists: {a}/{b}')
+ plat=platform_of(a);ap=o.get('article-path')
+ if plat=='medichannel':
+  if not ap or ap is True:bad('init-page requires --article-path <path> for a medichannel project.')
+  ap=pathfrag(ap,'--article-path')
+ elif ap is not None:bad('--article-path only applies to medichannel projects.')
  for x in ('guidelines','sources','runs','releases'):(d/x).mkdir(parents=True,exist_ok=True)
- t=now();write(d/'page.json',{'id':b,'name':name or b,'status':'DRAFT','currentSourceId':None,'currentRunId':None,'currentReleaseId':None,'createdAt':t,'updatedAt':t});return {'projectId':a,'pageId':b,'root':str(d)}
+ t=now();write(d/'page.json',{'id':b,'name':name or b,'status':'DRAFT','currentSourceId':None,'currentRunId':None,'currentReleaseId':None,'articlePath':ap,'createdAt':t,'updatedAt':t});return {'projectId':a,'pageId':b,'root':str(d),'articlePath':ap}
 def new_source(a,b,o):
  d=require_page(a,b); base=o.get('from-source'); changes=[]
  for z in vals(o.get('changed-node')):
@@ -367,49 +412,69 @@ def ready(a,b,c):
   if not ref or Path(ref).name not in png:bad(f"Source variant {v['label']} has no matching PNG reference export.")
  norm=compact(a,b,c)
  t=now();update(f,lambda x:{**x,'status':'READY','completedAt':t,'error':None,'referenceState':x['referenceState'] if x.get('extractionMode')=='INCREMENTAL' else {z['label']:'REFRESHED' for z in x['figma']['variants']}});update(page(a,b)/'page.json',lambda x:{**x,'status':'SOURCE_READY','currentSourceId':c,'updatedAt':t});return {'projectId':a,'pageId':b,'sourceId':c,'status':'READY','normalized':norm['normalized']}
-GUIDE=ROOT/'guidelines';ROLES={'builder':'builder','extractor':'extractor','ui':'ui-qa','content':'content-qa','accessibility':'accessibility-qa','technical':'technical-qa'}
+GUIDE=ROOT/'guidelines'
+ROLE_FILES={'builder':GUIDE/'builder.md','extractor':GUIDE/'extractor.md','ui':GUIDE/'global'/'qa'/'ui-qa.md','content':GUIDE/'global'/'qa'/'content-qa.md','accessibility':GUIDE/'global'/'qa'/'accessibility-qa.md','technical':GUIDE/'global'/'qa'/'technical-qa.md'}
 # Platform coding standards are a second axis, orthogonal to role. MediChannel
 # (XHTML 1.0 Strict) and HTML5 are mutually exclusive: building under the wrong
-# ruleset means a rebuild, so a role-scoped read delivers the role file *and* the
-# project's platform bundle. Without this, guidelines/global.md names these files
-# by path while no agent ever receives them.
-PLATFORMS={
- 'medichannel':{'all':('xhtml-coding-rules','medichannel-delivery-standards','xhtml-vs-html5-reference'),'qa':('az-html-qa-guide',)},
- 'html5':{'all':('html-coding-rules',),'qa':()},
-}
+# ruleset means a rebuild, so a role-scoped read delivers the role file *and*
+# the channel's coding/QA bundle under guidelines/<channel>/. Without this,
+# guidelines/global/general-rules.md names these folders while no agent ever
+# receives them.
+PLATFORM_DIR={'medichannel':'medichannel','html5':'m3'}
 QAROLES={'ui','content','accessibility','technical'}
+def relkey(p):return p.relative_to(ROOT).as_posix()
 def platform_of(a):
  f=prj(a)/'project.json'
  v=(read(f).get('platform') if f.exists() else None) or None
- if v is not None and v not in PLATFORMS:bad(f"Project {a} records an unknown platform: {v}. Use one of: {', '.join(sorted(PLATFORMS))}.")
+ if v is not None and v not in PLATFORM_DIR:bad(f"Project {a} records an unknown platform: {v}. Use one of: {', '.join(sorted(PLATFORM_DIR))}.")
  return v
+def payload_spec(a,article_path):
+ plat=platform_of(a)
+ if plat is None:bad(f"Project {a} has no platform set; cannot determine deployable output shape.")
+ if plat!='medichannel':return {'kind':'flat'}
+ delivery=read(prj(a)/'project.json').get('delivery') or {}
+ missing=[k for k in ('contentRoot','damRoot','cssRoot') if not delivery.get(k)]
+ if missing:bad(f"Project {a} is missing delivery path field(s): {', '.join(missing)}. Set them with: kit.py set-platform {a} --platform medichannel --content-root <path> --dam-root <path> --css-root <path>.")
+ if not article_path:bad('Page has no articlePath recorded; set it at init-page time with --article-path <path>.')
+ return {'kind':'jcr','articlePath':article_path,**delivery}
 def platform_files(role,plat):
- if not plat or role is None:return set()
- s=PLATFORMS[plat];return {n+'.md' for n in s['all']}|({n+'.md' for n in s['qa']} if role in QAROLES else set())
+ if not plat or role is None:return []
+ d=GUIDE/PLATFORM_DIR[plat]
+ out=sorted((GUIDE/'global'/'coding').glob('*.md'),key=relkey)
+ gr=d/'general-rules.md'
+ if gr.exists():out.append(gr)
+ out+=sorted((d/'coding').glob('*.md'),key=relkey)
+ if role in QAROLES:out+=sorted((d/'qa').glob('*.md'),key=relkey)
+ return out
 def gfiles(a,b,role=None):
- out=[GUIDE/'global.md'] if (GUIDE/'global.md').exists() else []
- keep=None if role is None else {ROLES[role]+'.md'}|platform_files(role,platform_of(a))
- if (GUIDE/'base').is_dir():out+=sorted(x for x in (GUIDE/'base').glob('*.md') if x.is_file() and (keep is None or x.name in keep))
+ gr=GUIDE/'global'/'general-rules.md'
+ out=[gr] if gr.exists() else []
+ if role is None:
+  out+=sorted((p for p in GUIDE.rglob('*.md') if p.is_file() and p!=gr),key=relkey)
+ else:
+  rf=ROLE_FILES[role]
+  if rf.exists():out.append(rf)
+  out+=platform_files(role,platform_of(a))
  for d in (prj(a)/'guidelines',page(a,b)/'guidelines'):
   if d.is_dir():out+=sorted(x for x in d.glob('*.md') if x.is_file())
  return out
 def guidelines(a,b,o):
  role=o.get('role')
- if role is not None and role is not True and role not in ROLES:bad(f"Unknown role: {role}. Use one of: {', '.join(sorted(ROLES))}.")
- role=role if role in ROLES else None;prev=o.get('prev-hash')
+ if role is not None and role is not True and role not in ROLE_FILES:bad(f"Unknown role: {role}. Use one of: {', '.join(sorted(ROLE_FILES))}.")
+ role=role if role in ROLE_FILES else None;prev=o.get('prev-hash')
  g,_,h=snapshot(a,b,role)
  if prev and prev==h:cp=gcache(a,role,h);return f"GUIDELINE_CACHE_HIT\nhash: {h}\npath: {str(cp)}"
  return g
 def snapshot(a,b,role=None):
  plat=platform_of(a)
- body=['# Effective guideline snapshot','',f"Role scope: {role or 'all'}.",f"Platform: {plat or 'not set'}.",'Resolved in precedence order: global, base, project, page. Later rules override','earlier rules only where they address the same requirement explicitly.','']
- if role is not None and not plat:body+=['> **Warning:** no platform is set for this project, so no platform coding','> standards are included below. The rules named in the Platform guidelines','> section of `guidelines/global.md` are NOT part of this snapshot. Set the','> platform with `kit.py set-platform <project> --platform <name>` and re-read.','']
+ body=['# Effective guideline snapshot','',f"Role scope: {role or 'all'}.",f"Platform: {plat or 'not set'}.",'Resolved in precedence order: global, channel, project, page. Later rules override','earlier rules only where they address the same requirement explicitly.','']
+ if role is not None and not plat:body+=['> **Warning:** no platform is set for this project, so no channel coding','> standards are included below. The rules named in the Channels section of','> `guidelines/global/general-rules.md` are NOT part of this snapshot. Set the','> platform with `kit.py set-platform <project> --platform <name>` and re-read.','']
  srcs=[]
  for f in gfiles(a,b,role):
   x=f.read_text(encoding='utf8');rel=f.relative_to(ROOT).as_posix()
   srcs.append({'path':rel,'sha256':hashlib.sha256(x.encode()).hexdigest()})
   body+=[f'## {rel}','',x.strip(),'']
- if not srcs:bad('No guideline sources resolved; a run requires at least guidelines/global.md.')
+ if not srcs:bad('No guideline sources resolved; a run requires at least guidelines/global/general-rules.md.')
  g='\n'.join(body)+'\n';h=hashlib.sha256(g.encode()).hexdigest();cp=gcache(a,role,h)
  if not cp.exists():cp.write_text(g,encoding='utf8')
  return g,srcs,h
@@ -418,12 +483,12 @@ def newrun(a,b,o):
  # Platform is confirmed at ticket intake: MediChannel and HTML5 standards are
  # mutually exclusive, so a run started without one would build against no
  # coding standard at all.
- if not platform_of(a):bad(f"Project {a} has no platform. Confirm it at intake and set it with: kit.py set-platform {a} --platform <{'|'.join(sorted(PLATFORMS))}>")
+ if not platform_of(a):bad(f"Project {a} has no platform. Confirm it at intake and set it with: kit.py set-platform {a} --platform <{'|'.join(sorted(PLATFORM_DIR))}>")
  if not c:bad('No ready source is selected. Extract and mark a source READY first.')
  s=read(src(a,b,c)/'source.json')
  if s['status']!='READY':bad(f"Source {c} is {s['status']}, not READY.")
  i=numbered(d/'runs','run');r=run(a,b,i)
- for x in ('candidates','generated/images','visual','qa'):(r/x).mkdir(parents=True,exist_ok=True)
+ for x in ('candidates','generated','visual','qa'):(r/x).mkdir(parents=True,exist_ok=True)
  t=now();g,gs,h=snapshot(a,b);(r/'effective-guidelines.md').write_text(g,encoding='utf8');write(r/'run.json',{'id':i,'status':'CREATED','sourceId':c,'sourceExtractionMode':s.get('extractionMode','FULL'),'baseSourceId':s.get('baseSourceId'),'previousRunId':p.get('currentRunId'),'startedAt':t,'completedAt':None,'guidelineSnapshot':{'sources':gs,'sha256':h},'repair':{'round':0,'maxRounds':3},'candidates':[],'events':[{'at':t,'type':'created','sourceId':c}],'error':None});update(d/'page.json',lambda x:{**x,'status':'BUILDING','currentRunId':i,'updatedAt':t});active(project=a,page=b,run=i,round=0,status='CREATED',candidate=None,task=None);return {'projectId':a,'pageId':b,'runId':i,'sourceId':c,'root':str(r),'guidelineSnapshot':{'sources':[x['path'] for x in gs]}}
 def candidate(a,b,c,o):
  s=mutable(a,b,c);r=run(a,b,c);i=numbered(r/'candidates','candidate');d=r/'candidates'/i;d.mkdir(parents=True);n=int(o.get('round',s['repair']['round']))
@@ -431,17 +496,20 @@ def candidate(a,b,c,o):
  if str(o.get('from-accepted','')).lower() in ('true','1') or o.get('from-accepted') is True:
   if not s.get('acceptedCandidateId'):bad('Cannot seed from accepted output because no candidate has been accepted.')
   cp(r/'generated',d)
- (d/'images').mkdir(exist_ok=True);t=now();write(d/'candidate.json',{'id':i,'projectId':a,'pageId':b,'runId':c,'sourceId':s['sourceId'],'baseSourceId':s.get('baseSourceId'),'round':n,'scope':o.get('scope','full-page'),'status':'PENDING','createdAt':t,'evaluatedAt':None,'metrics':None,'reasons':[]})
+ spec=payload_spec(a,read(page(a,b)/'page.json').get('articlePath'))
+ if spec['kind']=='flat':(d/'images').mkdir(exist_ok=True)
+ else:(d/jcr_paths(spec)[1]).mkdir(parents=True,exist_ok=True)
+ t=now();write(d/'candidate.json',{'id':i,'projectId':a,'pageId':b,'runId':c,'sourceId':s['sourceId'],'baseSourceId':s.get('baseSourceId'),'round':n,'scope':o.get('scope','full-page'),'status':'PENDING','createdAt':t,'evaluatedAt':None,'metrics':None,'reasons':[]})
  update(r/'run.json',lambda x:{**x,'candidates':[ *x['candidates'],{'id':i,'status':'PENDING','createdAt':t,'round':n,'scope':o.get('scope','full-page'),'sourceId':x['sourceId']}],'events':[ *x['events'],{'at':t,'type':'candidate-created','candidateId':i,'round':n,'scope':o.get('scope','full-page')} ]});active(project=a,page=b,run=c,candidate=i,round=n,task=o.get('scope','full-page'));return {'projectId':a,'pageId':b,'runId':c,'candidateId':i,'root':str(d)}
 def result(a,b,c,i,o):
  s=mutable(a,b,c);r=run(a,b,c);d=r/'candidates'/i;f=d/'candidate.json';st=str(o.get('status','')).upper()
  if st not in {'ACCEPTED','REJECTED'}:bad('candidate-result requires --status accepted|rejected.')
- payload(d,'Candidate deployable output',ignore=('candidate.json',))
+ spec=payload_spec(a,read(page(a,b)/'page.json').get('articlePath'));payload(d,'Candidate deployable output',spec)
  m=read(Path(o['metrics'])) if o.get('metrics') else None; static=read(Path(o['static'])) if o.get('static') else None; browser=read(Path(o['browser'])) if o.get('browser') else None
  if st=='ACCEPTED' and m and m.get('status')=='ERROR':bad(f"Visual evidence is unavailable, so this candidate cannot be accepted: {m.get('reason') or 'comparison error'}. Fix the evidence and re-measure; do not treat it as a visual failure.")
  if st=='ACCEPTED' and any(not q or q.get('status')!='PASS' for q in (m,static,browser)):bad('Accepted candidates require passing static, browser, and visual reports.')
  t=now();x=read(f);x.update(status=st,evaluatedAt=t,metrics=m,evidence={'static':static,'browser':browser},reasons=[o['reason']] if o.get('reason') else []);write(f,x)
- if st=='ACCEPTED':rm(r/'generated');cp(d,r/'generated');(r/'generated'/'candidate.json').unlink(missing_ok=True);rm(r/'qa');(r/'qa').mkdir()
+ if st=='ACCEPTED':rm(r/'generated');cp(d,r/'generated');(r/'generated'/'candidate.json').unlink(missing_ok=True);rm(r/'generated'/'structural-check');rm(r/'qa');(r/'qa').mkdir()
  def fn(z):
   q={'id':i,'status':st,'evaluatedAt':t,'round':z['repair']['round'],'metrics':m,'evidence':{'static':static.get('status') if static else None,'browser':browser.get('status') if browser else None},'reasons':x['reasons'],'sourceId':z['sourceId']};z['candidates']=[{**v,**q} if v['id']==i else v for v in z['candidates']];z['acceptedCandidateId']=i if st=='ACCEPTED' else z.get('acceptedCandidateId');z['events'].append({'at':t,'type':'candidate','candidateId':i,'status':st});return z
  update(r/'run.json',fn);return {'projectId':a,'pageId':b,'runId':c,'candidateId':i,'status':st,'acceptedCandidateId':i if st=='ACCEPTED' else s.get('acceptedCandidateId')}
@@ -480,7 +548,7 @@ def release(a,b,c):
  s=mutable(a,b,c);r=run(a,b,c)
  if s['status']!='VERIFYING':bad(f"Run must be VERIFYING before release; current status is {s['status']}.")
  if summary(a,b,c)['status']!='PASS' or not (r/'qa/release-verifier.json').exists():bad('Cannot release without passing QA and a recorded release-verifier verdict.')
- payload(r/'generated','Generated output')
+ payload(r/'generated','Generated output',payload_spec(a,read(page(a,b)/'page.json').get('articlePath')))
  d=page(a,b);i=numbered(d/'releases','v');target=d/'releases'/i;cp(r/'generated',target/'site');cp(r/'effective-guidelines.md',target/'effective-guidelines.md');cp(r/'qa',target/'qa');checks={x.relative_to(target/'site').as_posix():hashlib.sha256(x.read_bytes()).hexdigest() for x in (target/'site').rglob('*') if x.is_file()};write(target/'release.json',{'releaseId':i,'runId':c,'sourceId':s['sourceId'],'createdAt':now(),'checksums':checks});rm(d/'current');cp(target/'site',d/'current');done=transition(a,b,c,'COMPLETED',{'releaseId':i});cp(r/'run.json',target/'run.json');update(d/'page.json',lambda x:{**x,'status':'COMPLETED','currentRunId':c,'currentReleaseId':i,'updatedAt':done['completedAt']});return {'projectId':a,'pageId':b,'runId':c,'releaseId':i,'release':str(target)}
 def resolve(a,b,c,o):
  f=src(a,b,c)/'source.json';s=read(f)
@@ -524,7 +592,7 @@ def main():
  if cmd=='help':out=help()
  elif cmd=='init-project':out=init_project(safe(p[0],'project identifier'),p[1] if len(p)>1 else None,o)
  elif cmd=='set-platform':out=setplatform(safe(p[0],'project identifier'),o)
- elif cmd=='init-page':out=init_page(safe(p[0],'project identifier'),safe(p[1],'page identifier'),p[2] if len(p)>2 else None)
+ elif cmd=='init-page':out=init_page(safe(p[0],'project identifier'),safe(p[1],'page identifier'),p[2] if len(p)>2 else None,o)
  elif cmd=='new-source':out=new_source(p[0],p[1],o)
  elif cmd=='source-call':out=call(p[0],p[1],p[2],o)
  elif cmd=='source-budget':out=budget(p[0],p[1],p[2])

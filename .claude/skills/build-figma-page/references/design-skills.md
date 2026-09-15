@@ -8,4 +8,4 @@ Page builder proceeds directly from normalized spec and effective guidelines.
 
 ## Web Interface Guidelines during QA
 
-UI and accessibility reviewers use base guideline files (`ui-qa.md`, `accessibility-qa.md`) directly.
+UI and accessibility reviewers use `guidelines/global/qa/ui-qa.md` and `guidelines/global/qa/accessibility-qa.md` directly.

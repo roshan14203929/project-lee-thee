@@ -2,7 +2,20 @@
   "permissions": {
     "allow": [
       "Bash(python *)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(python \"C:\\\\Users\\\\ROSHAN~1.MOO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-roshan-s-moolya-Documents-figma-to-html-claude-poc\\\\3ca955a9-5906-459b-b350-3c660fb5bb4c\\\\scratchpad\\\\build_source002_spec.py\")",
+      "Bash(python \"C:\\\\Users\\\\ROSHAN~1.MOO\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-roshan-s-moolya-Documents-figma-to-html-claude-poc\\\\3ca955a9-5906-459b-b350-3c660fb5bb4c\\\\scratchpad\\\\build_source002_inventory.py\")",
+      "Bash(python scripts/kit.py resolve-question thirdparty spn source-002 --question oq-01 --decision \"Preserve XXXX breadcrumb item 2 as-is — client fill-in placeholder, consistent with project pattern\" --by user)",
+      "Bash(python scripts/kit.py resolve-question thirdparty spn source-002 --question oq-02 --decision \"Preserve XXXX breadcrumb item 3 as-is — client fill-in placeholder, consistent with project pattern\" --by user)",
+      "Bash(python scripts/kit.py resolve-question thirdparty spn source-002 --question oq-03 --decision \"Preserve JP-〇〇〇〇 regulatory code as-is — pending client fill-in, consistent with project pattern\" --by user)",
+      "Bash(python scripts/kit.py resolve-question thirdparty spn source-002 --question oq-04 --decision \"Use href='#' for 電子添文を見る link — pending client fill-in\" --by user)",
+      "Bash(python scripts/kit.py resolve-question thirdparty spn source-002 --question oq-05 --decision \"Component ids are instances not component-sets — non-blocking, build from visual evidence\" --by user)",
+      "Bash(python scripts/kit.py source-ready thirdparty spn source-002)",
+      "Bash(python scripts/kit.py spec-pattern-map thirdparty spn source-002)",
+      "Bash(python scripts/kit.py new-run thirdparty spn --source source-002)",
+      "Bash(python scripts/kit.py transition thirdparty spn run-001 BUILDING)",
+      "Bash(python scripts/kit.py new-candidate thirdparty spn run-001 --round 0 --scope full-page)",
+      "Bash(python scripts/kit.py guidelines thirdparty spn --role builder)"
     ],
     "additionalDirectories": [
       "/Users/roshanmoolya/Documents/mediChannel/projects/fsn-hes/pages/home/runs/run-002/candidates/candidate-001/assets"
@@ -14,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"${CLAUDE_PROJECT_DIR}/scripts/log-agent-event.py\""
+            "command": "python \"c:/Users/roshan.s.moolya/Documents/figma-to-html-claude-poc/scripts/log-agent-event.py\""
           }
         ]
       }

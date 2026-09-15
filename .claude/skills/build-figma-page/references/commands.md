@@ -3,9 +3,10 @@
 Run from the kit root.
 
 ```bash
-python scripts/kit.py init-project <project> "<name>" [--platform medichannel|html5]
-python scripts/kit.py set-platform <project> --platform medichannel|html5
-python scripts/kit.py init-page <project> <page> "<name>"
+python scripts/kit.py init-project <project> "<name>" --platform medichannel [--content-root <path>] [--dam-root <path>] [--css-root <path>]
+python scripts/kit.py init-project <project> "<name>" --platform html5
+python scripts/kit.py set-platform <project> --platform medichannel|html5 [--content-root <path>] [--dam-root <path>] [--css-root <path>]
+python scripts/kit.py init-page <project> <page> "<name>" [--article-path <path>]
 python scripts/kit.py new-source <project> <page> --variant desktop=<url> --variant mobile=<url>
 python scripts/kit.py new-source <project> <page> --from-source <source> --changed-node desktop=<node-id> --reason "<change>"
 python scripts/kit.py source-budget <project> <page> <source>
@@ -23,7 +24,7 @@ python scripts/kit.py guidelines <project> <page> [--role builder|extractor|ui|c
 python scripts/kit.py new-run <project> <page> --source <source>
 python scripts/kit.py transition <project> <page> <run> BUILDING
 python scripts/kit.py new-candidate <project> <page> <run> --round 0 --scope full-page
-python scripts/verify-output.py --root <candidate-dir> --inventory <inventory> --output <report>
+python scripts/verify-output.py --root <candidate-dir> --inventory <inventory> --output <report> [--platform html5|medichannel --content-root <path> --dam-root <path> --css-root <path> --article-path <path>]
 python scripts/render-page.py --root <candidate-dir> --output <candidate.png> --width <width> --height <height> [--scale 1] --full-page false
 python scripts/browser-summary.py --report <desktop.png.json> --report <mobile.png.json> --output <browser-summary.json>
 python scripts/visual-diff.py --reference <reference.png> --candidate <candidate.png> --output <visual-review.json>
@@ -57,20 +58,28 @@ as a single render report and may aggregate several viewport render reports.
 The `release` command requires the run to be `VERIFYING`, current-candidate
 passing reports for all four QA kinds, a matching recorded release-verifier
 verdict, and the exact generated payload: `images/`, `index.html`, `base.css`,
-and `page.css`.
+and `page.css` for HTML5/M3 — the nested `content/`/`content/dam/`/`etc/designs/`
+tree described in `artifact-contract.md` for MediChannel, driven by
+`project.json.delivery` and `page.json.articlePath` (set via `init-project`/
+`set-platform --content-root/--dam-root/--css-root` and `init-page
+--article-path`).
 
-`guidelines` resolves the global, base, project, and page layers in precedence
-order. With `--role` it includes that role's file from `guidelines/base/` **plus
-the project's platform bundle**, which is how every agent should read its
-guidelines. `new-run` still writes the unscoped snapshot to
-`effective-guidelines.md`, so release evidence stays complete.
+`guidelines` resolves the global, channel, project, and page layers in
+precedence order. With `--role` it includes that role's own file (`builder.md`,
+`extractor.md`, or `guidelines/global/qa/<role>-qa.md`) **plus the
+channel-agnostic baseline in `guidelines/global/coding/` and the project's
+channel bundle** (`guidelines/medichannel/` or `guidelines/m3/`), which is how
+every agent should read its guidelines. `new-run` still writes the unscoped
+snapshot to `effective-guidelines.md`, so release evidence stays complete.
 
 Platform is a second axis, orthogonal to role. MediChannel (XHTML 1.0 Strict)
-delivers `xhtml-coding-rules.md`, `medichannel-delivery-standards.md`, and
-`xhtml-vs-html5-reference.md` to every role, plus `az-html-qa-guide.md` to the
-four QA roles; HTML5 delivers `html-coding-rules.md`. `new-run` fails until a
-platform is set, and a role-scoped read with no platform opens with an explicit
-warning rather than silently omitting the standards.
+delivers `guidelines/medichannel/general-rules.md` and every file under
+`guidelines/medichannel/coding/` to every role, plus every file under
+`guidelines/medichannel/qa/` to the four QA roles; HTML5 delivers
+`guidelines/m3/general-rules.md` and `guidelines/m3/coding/html5-delta.md`.
+`new-run` fails until a platform is set, and a role-scoped read with no
+platform opens with an explicit warning rather than silently omitting the
+standards.
 
 `crop-bands.py` reads a `visual-diff.py` report, fuses its adjacent `worstBands`
 into coherent regions, and writes native-resolution reference/candidate/diff

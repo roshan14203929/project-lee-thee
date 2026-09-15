@@ -36,7 +36,7 @@ catastrophic clipping, but they are diagnostic rather than visual release
 gates unless the user or effective page guidelines explicitly require
 responsive behavior at those widths.
 
-Numeric thresholds come from `guidelines/global.md`. A numeric pass does not
+Numeric thresholds come from `guidelines/global/general-rules.md`. A numeric pass does not
 override an obvious structural or content mismatch.
 
 Use fixed-height screenshots (`--full-page false`) when Figma references have

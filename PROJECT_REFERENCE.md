@@ -76,38 +76,58 @@ read-only Figma API and local Python scripts.
 
 ---
 
-## 4. Guidelines (`guidelines/`) — layered quality rules
+## 4. Guidelines (`guidelines/`) — layered quality rules, organized by channel
 
-Resolution order is **global → base (role-specific + platform) → project →
-page**; every run snapshots the resolved set plus a SHA-256 hash.
+Resolution order is **global → channel (role-specific + platform delta) →
+project → page**; every run snapshots the resolved set plus a SHA-256 hash.
 
-Base guidelines have two axes. **Role** picks one file per agent
-(`builder.md`, `ui-qa.md`, …). **Platform** picks the coding-standard bundle for
-the project's delivery target, recorded on `project.json` by `init-project
---platform` / `set-platform`: `medichannel` delivers `xhtml-coding-rules.md`,
-`medichannel-delivery-standards.md`, and `xhtml-vs-html5-reference.md` to every
-role plus `az-html-qa-guide.md` to the four QA roles; `html5` delivers
-`html-coding-rules.md`. The two rulesets are mutually exclusive, so `new-run`
-refuses to start until a platform is set, and a role-scoped read without one
-opens with an explicit warning. The unscoped read remains the full archival
-record of every base file.
+`guidelines/` is split into `global/` (channel-agnostic baseline, applies to
+every project) and one folder per channel — `guidelines/medichannel/` and
+`guidelines/m3/` — each holding only the rules that genuinely differ from the
+baseline. Each of the three top-level folders shares the same shape:
+`general-rules.md` (bare delivery/process rules), `coding/*.md`, `qa/*.md`.
+`guidelines/builder.md` and `guidelines/extractor.md` sit outside this
+structure — they're agent-role files, not channel content.
 
-- **`global.md`** — the master rulebook: extraction rules, run immutability,
-  numeric QA gates (max 3 repair rounds, 5% full-page pixel diff ceiling, 12%
-  localized band ceiling, 0.10pt regression tolerance, 0.20pt required
-  improvement after round 1), content/UI/accessibility fidelity rules, and release
-  rules (only the orchestrator creates releases, exact byte-for-byte copy).
-- **`base/extractor.md`** — extraction defaults: normalize into sections, retain
+Role and platform are two independent axes. **Role** picks one file per agent
+(`builder.md`, `guidelines/global/qa/ui-qa.md`, …). **Platform** picks the
+channel bundle for the project's delivery target, recorded on `project.json`
+by `init-project --platform` / `set-platform`: `medichannel` delivers every
+file under `guidelines/medichannel/coding/` (plus `general-rules.md`) to every
+role, and every file under `guidelines/medichannel/qa/` to the four QA roles;
+`html5` delivers `guidelines/m3/coding/html5-delta.md` (plus
+`general-rules.md`) the same way. The two rulesets are mutually exclusive, so
+`new-run` refuses to start until a platform is set, and a role-scoped read
+without one opens with an explicit warning. The unscoped read remains the full
+archival record of every file under `guidelines/`.
+
+- **`global/general-rules.md`** — the master rulebook: extraction rules, run
+  immutability, numeric QA gates (max 3 repair rounds, 5% full-page pixel diff
+  ceiling, 12% localized band ceiling, 0.10pt regression tolerance, 0.20pt
+  required improvement after round 1), content/UI/accessibility fidelity
+  rules, and release rules (only the orchestrator creates releases, exact
+  byte-for-byte copy).
+- **`global/coding/{html,css,assets-media}.md`** — the channel-agnostic HTML/CSS
+  baseline: document structure, semantic HTML, accessibility, BEM + `cst-`
+  naming, design tokens, CSS architecture/hygiene, image/asset rules,
+  character-encoding preflight. Channel folders add only deltas (e.g. font-size
+  unit) on top of this.
+- **`extractor.md`** — extraction defaults: normalize into sections, retain
   Figma node IDs, mark inferred data with confidence/evidence, build the content
   inventory.
-- **`base/builder.md`** — build defaults: plain HTML/CSS/JS, semantic elements over
+- **`builder.md`** — build defaults: plain HTML/CSS/JS, semantic elements over
   ARIA, CSS custom properties for tokens, Grid/Flexbox over absolute positioning,
   no inline styles/`!important`/frameworks/trackers, sections kept independently
   repairable.
-- **`base/content-qa.md`**, **`base/ui-qa.md`**, **`base/accessibility-qa.md`**,
-  **`base/technical-qa.md`** — per-reviewer default checklists matching each
-  agent's job (content fidelity, pixel/geometry fidelity, a11y, technical/browser
-  integrity).
+- **`global/qa/{content,ui,accessibility,technical}-qa.md`** — per-reviewer
+  default checklists matching each agent's job (content fidelity,
+  pixel/geometry fidelity, a11y, technical/browser integrity).
+- **`medichannel/`** / **`m3/`** — channel deltas: MediChannel adds XHTML 1.0
+  Strict syntax rules, the `px`-only font-size override, sibling-article
+  design-token consistency, and the client's delivery/process spec (editable
+  area, 800KB cap, jQuery pin); M3 adds the `rem`-only font-size override and
+  its own delivery profile. Each also carries a `qa/qa-findings-reference.md`
+  citing verified production defects per channel.
 
 ---
 
@@ -186,7 +206,7 @@ project data, not a code sample.
   page → source → run → release lifecycle produces an immutable, correctly
   released run.
 - **`fixtures/sample/generated/{images/,index.html,base.css,page.css}`** — a minimal static
-  page fixture used as test input/expected output.
+  page fixture (flat HTML5/M3 shape) used as test input/expected output.
 
 ---
 
