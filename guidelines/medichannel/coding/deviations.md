@@ -32,6 +32,10 @@ Never implement a border on `.cst-page`, even if Figma's page-container node sho
 
 Platform-dependent characters (①, ㈱, Ⅲ, etc.) — not just the Roman-numeral/full-width-minus set in `global/coding/assets-media.md` — must use character entity or numeric references, per the formal client spec. Prefer numeric refs over named ones in XML mode: `&nbsp;` → `&#160;`, `&copy;` → `&#169;`, `&mdash;` → `&#8212;`.
 
+Fullwidth comparison symbols (`＜`, `＞`) → halfwidth entity-escaped form (`&lt;`, `&gt;`).
+
+M3→MediChannel migration only: M3 flattens circled digits to plain `(1)(2)(3)` (see `m3/coding/*`); when porting that content here, restore as numeric refs `&#9312;`–`&#9317;` (①–③) instead, since MediChannel entity-encodes platform-dependent glyphs rather than stripping them. Do not introduce circled digits in MediChannel-original content.
+
 ## CSS naming
 
 Lowercase element names in selectors only (XML is case-sensitive).
