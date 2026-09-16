@@ -131,7 +131,6 @@ def checkplatform(v):
  v=str(v).strip().lower()
  if v not in PLATFORM_DIR:bad(f"Unknown platform: {v}. Use one of: {', '.join(sorted(PLATFORM_DIR))}.")
  return v
-DEFAULT_MEDICHANNEL_DELIVERY={'contentRoot':'PhysicianServices/Japan/048-MediChannel/ja/jp','damRoot':'physician-services/Japan','cssRoot':'physician-services/japan/css'}
 PATHFRAG=re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*$')
 def pathfrag(v,label):
  v=str(v).strip()
@@ -145,12 +144,18 @@ def delivery_overrides(o):
    if o[flag] is True:bad(f"--{flag} requires a value.")
    out[key]=pathfrag(o[flag],f'--{flag}')
  return out
+def require_delivery(d):
+ # These are per-engagement JCR paths. A default would silently publish one
+ # client's build into another client's content tree.
+ missing=[f'--{flag}' for flag,key in DELIVERY_FLAGS if not d.get(key)]
+ if missing:bad(f"A medichannel project requires {', '.join(missing)} with no default.")
+ return {key:d[key] for flag,key in DELIVERY_FLAGS}
 def init_project(a,name,o=None):
  d=prj(a)
  if d.exists(): bad(f'Project already exists: {a}')
  o=o or {};pf=checkplatform(o.get('platform'));overrides=delivery_overrides(o)
  if overrides and pf!='medichannel':bad('--content-root/--dam-root/--css-root require --platform medichannel.')
- delivery={**DEFAULT_MEDICHANNEL_DELIVERY,**overrides} if pf=='medichannel' else None
+ delivery=require_delivery(overrides) if pf=='medichannel' else None
  t=now();(d/'guidelines').mkdir(parents=True);(d/'pages').mkdir();write(d/'project.json',{'id':a,'name':name or a,'description':'','platform':pf,'delivery':delivery,'createdAt':t,'updatedAt':t});return {'projectId':a,'root':str(d),'platform':pf,'delivery':delivery}
 def setplatform(a,o):
  f=prj(a)/'project.json'
@@ -160,7 +165,7 @@ def setplatform(a,o):
  overrides=delivery_overrides(o)
  if overrides and pf!='medichannel':bad('--content-root/--dam-root/--css-root require --platform medichannel.')
  def fn(x):
-  delivery={**DEFAULT_MEDICHANNEL_DELIVERY,**(x.get('delivery') or {}),**overrides} if pf=='medichannel' else None
+  delivery=require_delivery({**(x.get('delivery') or {}),**overrides}) if pf=='medichannel' else None
   return {**x,'platform':pf,'delivery':delivery,'updatedAt':now()}
  v=update(f,fn);return {'projectId':a,'platform':pf,'delivery':v.get('delivery'),'guidelines':sorted({p.relative_to(ROOT).as_posix() for p in platform_files('builder',pf)+platform_files('ui',pf)})}
 def init_page(a,b,name,o=None):
@@ -175,6 +180,15 @@ def init_page(a,b,name,o=None):
  elif ap is not None:bad('--article-path only applies to medichannel projects.')
  for x in ('guidelines','sources','runs','releases'):(d/x).mkdir(parents=True,exist_ok=True)
  t=now();write(d/'page.json',{'id':b,'name':name or b,'status':'DRAFT','currentSourceId':None,'currentRunId':None,'currentReleaseId':None,'articlePath':ap,'createdAt':t,'updatedAt':t});return {'projectId':a,'pageId':b,'root':str(d),'articlePath':ap}
+def setarticlepath(a,b,o):
+ # Recovery path for a page created before its project became medichannel,
+ # which leaves articlePath unset and blocks every candidate and release.
+ d=require_page(a,b)
+ if platform_of(a)!='medichannel':bad('--article-path only applies to medichannel projects.')
+ ap=(o or {}).get('article-path')
+ if not ap or ap is True:bad('set-article-path requires --article-path <path>.')
+ v=update(d/'page.json',lambda x:{**x,'articlePath':pathfrag(ap,'--article-path'),'updatedAt':now()})
+ return {'projectId':a,'pageId':b,'articlePath':v.get('articlePath')}
 def new_source(a,b,o):
  d=require_page(a,b); base=o.get('from-source'); changes=[]
  for z in vals(o.get('changed-node')):
@@ -435,7 +449,7 @@ def payload_spec(a,article_path):
  delivery=read(prj(a)/'project.json').get('delivery') or {}
  missing=[k for k in ('contentRoot','damRoot','cssRoot') if not delivery.get(k)]
  if missing:bad(f"Project {a} is missing delivery path field(s): {', '.join(missing)}. Set them with: kit.py set-platform {a} --platform medichannel --content-root <path> --dam-root <path> --css-root <path>.")
- if not article_path:bad('Page has no articlePath recorded; set it at init-page time with --article-path <path>.')
+ if not article_path:bad(f'Page has no articlePath recorded. Set it with: kit.py set-article-path {a} <page> --article-path <path>.')
  return {'kind':'jcr','articlePath':article_path,**delivery}
 def platform_files(role,plat):
  if not plat or role is None:return []
@@ -593,6 +607,7 @@ def main():
  elif cmd=='init-project':out=init_project(safe(p[0],'project identifier'),p[1] if len(p)>1 else None,o)
  elif cmd=='set-platform':out=setplatform(safe(p[0],'project identifier'),o)
  elif cmd=='init-page':out=init_page(safe(p[0],'project identifier'),safe(p[1],'page identifier'),p[2] if len(p)>2 else None,o)
+ elif cmd=='set-article-path':out=setarticlepath(safe(p[0],'project identifier'),safe(p[1],'page identifier'),o)
  elif cmd=='new-source':out=new_source(p[0],p[1],o)
  elif cmd=='source-call':out=call(p[0],p[1],p[2],o)
  elif cmd=='source-budget':out=budget(p[0],p[1],p[2])

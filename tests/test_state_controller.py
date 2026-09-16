@@ -186,7 +186,12 @@ def test_state_controller_creates_an_immutable_released_run_medichannel(project_
 def test_medichannel_candidate_requires_delivery_and_article_path(project_factory) -> None:
     project_id, page_id = "state-controller-medichannel-missing-fields-test", "home"
     project_root = project_factory(project_id)
-    kit("init-project", project_id, "Missing delivery fields test", "--platform", "medichannel")
+    kit(
+        "init-project", project_id, "Missing delivery fields test", "--platform", "medichannel",
+        "--content-root", "Test/Region/048-MediChannel/ja/jp",
+        "--dam-root", "test-region",
+        "--css-root", "test-region/css",
+    )
     kit("init-page", project_id, page_id, "Home", "--article-path", "test/product/example_article01")
     # Simulate a pre-migration project.json that predates the delivery field.
     project_json = project_root / "project.json"
@@ -211,3 +216,32 @@ def test_medichannel_candidate_requires_delivery_and_article_path(project_factor
     assert result.returncode != 0
     assert "delivery path field" in result.stderr
     assert "contentRoot" in result.stderr and "damRoot" in result.stderr and "cssRoot" in result.stderr
+
+
+def test_medichannel_project_requires_explicit_delivery_paths(project_factory) -> None:
+    # Defaulting these would publish one engagement's build into another's JCR tree.
+    project_id = "state-controller-medichannel-no-default-test"
+    project_root = project_factory(project_id)
+    result = run_kit("init-project", project_id, "No delivery default", "--platform", "medichannel", check=False)
+    assert result.returncode != 0
+    assert "--content-root" in result.stderr and "--dam-root" in result.stderr and "--css-root" in result.stderr
+    assert not project_root.exists()
+
+
+def test_set_article_path_recovers_a_page_after_a_platform_switch(project_factory) -> None:
+    project_id, page_id = "state-controller-set-article-path-test", "home"
+    project_root = project_factory(project_id)
+    kit("init-project", project_id, "Article path recovery")
+    kit("init-page", project_id, page_id, "Home")
+    kit(
+        "set-platform", project_id, "--platform", "medichannel",
+        "--content-root", "Test/Region/048-MediChannel/ja/jp",
+        "--dam-root", "test-region",
+        "--css-root", "test-region/css",
+    )
+    page_json = project_root / "pages" / page_id / "page.json"
+    assert json.loads(page_json.read_text(encoding="utf-8"))["articlePath"] is None
+
+    article_path = "test/product/example_article01"
+    kit("set-article-path", project_id, page_id, "--article-path", article_path)
+    assert json.loads(page_json.read_text(encoding="utf-8"))["articlePath"] == article_path

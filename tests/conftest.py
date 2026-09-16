@@ -36,6 +36,11 @@ def kit(*args: str) -> dict[str, object]:
 @pytest.fixture
 def project_factory():
     project_ids: list[str] = []
+    # kit.py records run state outside projects/, so dropping the project tree is
+    # not enough: a leftover marker makes the SubagentStop hook attribute the next
+    # subagent's token usage to a deleted test project.
+    active = ROOT / ".claude" / "state" / "active-run.json"
+    saved = active.read_text(encoding="utf-8") if active.exists() else None
 
     def create(project_id: str) -> Path:
         project_ids.append(project_id)
@@ -45,3 +50,7 @@ def project_factory():
 
     for project_id in project_ids:
         shutil.rmtree(ROOT / "projects" / project_id, ignore_errors=True)
+    if saved is None:
+        active.unlink(missing_ok=True)
+    else:
+        active.write_text(saved, encoding="utf-8")

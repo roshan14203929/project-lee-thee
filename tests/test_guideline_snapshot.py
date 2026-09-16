@@ -141,7 +141,12 @@ def test_role_scoped_read_returns_the_role_file_and_the_platform_bundle(project_
 def test_medichannel_delivers_xhtml_rules_and_the_qa_guide_to_qa_roles(project_factory) -> None:
     project_id, page_id = "guideline-platform-test", "home"
     project_factory(project_id)
-    kit("init-project", project_id, "Platform test", "--platform", "medichannel")
+    kit(
+        "init-project", project_id, "Platform test", "--platform", "medichannel",
+        "--content-root", "Test/Region/048-MediChannel/ja/jp",
+        "--dam-root", "test-region",
+        "--css-root", "test-region/css",
+    )
     kit("init-page", project_id, page_id, "Home", "--article-path", "medical/product/example-contents/example_article01")
 
     builder = sections(run_kit("guidelines", project_id, page_id, "--role", "builder").stdout)
