@@ -76,3 +76,13 @@ unavailable checks fail the summary.
 After the four checks pass, the release verifier returns a JSON verdict with
 `status: "READY"`, `runId`, `candidateId`, `checkedAt`, and `summary`. Record it
 with `release-check`; the release command refuses missing or stale verdicts.
+
+## PDF export (optional)
+
+Only when the user has asked for a PDF deliverable: `content` (delegate to
+`content-reviewer`) and `visual-cutoff` (delegate to `ui-reviewer`) are two
+additional, independently blocking QA kinds scoped to a `pdf-###` export
+rather than the HTML candidate. See `pdf-export.md` for the full sequence;
+they are recorded and summarized the same way (`pdf-qa-record`,
+`pdf-qa-summary`) but never substitute for, or get satisfied by, the four
+checks above.

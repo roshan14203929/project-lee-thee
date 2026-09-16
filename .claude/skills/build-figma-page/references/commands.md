@@ -43,6 +43,16 @@ python scripts/kit.py release <project> <page> <run>
 python scripts/kit.py needs-review <project> <page> <run> --message "<reason>"
 python scripts/kit.py fail <project> <page> <run> --message "<reason>"
 python scripts/create-qa-docs.py <TICKET>
+python scripts/kit.py convert-source <project> <page> --from-project <p> --from-page <pg> --from-source <source> [--force-new]
+python scripts/kit.py new-conversion-run <project> <page> --direction m3-to-medichannel|medichannel-to-m3 --from-project <p> --from-page <pg> --from-run <run> --from-candidate <candidate>
+python scripts/kit.py new-candidate <project> <page> <run> --round 0 --from-external <project>/<page>/<run>/<candidate>
+python scripts/convert-platform.py --direction m3-to-medichannel|medichannel-to-m3 --input <dir> --output <dir> --content-root <path> --dam-root <path> --css-root <path> --article-path <path> --output-report <report.json>
+python scripts/kit.py new-pdf-export <project> <page> <run> --from-candidate <candidate>
+python scripts/render-pdf.py --root <run>/generated --output <index.pdf> [--entry index.html] [--width 960] [--page-format A4] --strip-report <report.json>
+python scripts/kit.py pdf-result <project> <page> <run> <pdf-id> --status ready|failed --file <meta.json>
+python scripts/kit.py pdf-qa-record <project> <page> <run> <pdf-id> content|visual-cutoff --file <qa.json>
+python scripts/kit.py pdf-qa-summary <project> <page> <run> <pdf-id>
+python scripts/kit.py pdf-release <project> <page> <run> <pdf-id>
 ```
 
 `create-qa-docs.py <TICKET>` generates four human-reviewer DOCX files under
@@ -131,3 +141,10 @@ reference was exported above 1x, so the candidate is rasterized natively instead
 of resampling the reference. `visual-diff.py` requires exact dimension equality;
 a mismatch returns `status: ERROR`, `reason: dimension-mismatch`, and exit 3,
 which means *evidence is missing*, not that the page regressed.
+
+`convert-source`, `new-conversion-run`, `new-candidate --from-external`, and
+`convert-platform.py` port an already-accepted page to the other platform; see
+`channel-conversion.md` before using any of them. `new-pdf-export`,
+`render-pdf.py`, `pdf-result`, `pdf-qa-record`, `pdf-qa-summary`, and
+`pdf-release` attach a PDF deliverable to a run; see `pdf-export.md`. Both are
+optional workflows triggered only when the user asks for them.

@@ -22,6 +22,11 @@ def sid(v):
 def rid(v):
  if not isinstance(v,str) or not re.fullmatch(r'run-\d{3,}',v): bad(f"Invalid run identifier: {v if v is not None else '<missing>'}")
  return v
+def extref(v):
+ parts=str(v).split('/')
+ if len(parts)!=4:bad(f"Invalid external reference (expected project/page/run/candidate): {v}")
+ xa,xb,xr,xc=parts
+ return safe(xa,'source project identifier'),safe(xb,'source page identifier'),rid(xr),safe(xc,'source candidate identifier')
 def opts(v):
  p=[];o={};i=0
  while i<len(v):
@@ -59,7 +64,7 @@ def numbered(d,p):
 def jcr_paths(spec):
  ap=Path(spec['articlePath']);html_rel=Path('content')/spec['contentRoot']/f"{spec['articlePath']}.html";assets_rel=Path('content')/'dam'/spec['damRoot']/ap;css_dir=Path('etc')/'designs'/'code'/spec['cssRoot']/ap
  return html_rel,assets_rel,css_dir/'base.css',css_dir/'page.css',css_dir
-def payload(d,label,spec,ignore=('candidate.json','structural-check')):
+def payload(d,label,spec,ignore=('candidate.json','structural-check','_conversion-input')):
  d=Path(d)
  if spec['kind']=='flat':
   for x in PAYLOAD:
@@ -231,6 +236,27 @@ def new_source(a,b,o):
  ident=numbered(d/'sources','source');r=src(a,b,ident)
  for x in ('raw','spec','assets','reference'):(r/x).mkdir(parents=True,exist_ok=True)
  t=now();write(r/'source.json',{'id':ident,'status':'EXTRACTING','fingerprint':f,'extractionMode':'FULL','baseSourceId':None,'changeSet':None,'figma':{'url':vs[0]['url'],'variants':vs},'referenceState':{x['label']:'PENDING' for x in vs},'provenance':{'reusedFrom':None,'refreshedSections':[],'refreshedAssets':[],'appliedPatches':[]},'callLedger':[],'forceNewReason':o['reason'].strip() if force else None,'createdAt':t,'completedAt':None,'warnings':[],'error':None});return {'projectId':a,'pageId':b,'sourceId':ident,'root':str(r),'reused':False,'created':True,'extractionMode':'FULL'}
+def convertsource(a,b,o):
+ # Materializes another page's READY source (spec/inventory/pattern-map/
+ # assets/references) into this page's own sources/, so every existing tool
+ # that resolves paths under a page's own sources/ keeps working unmodified
+ # for a channel-conversion run. Sources are page-scoped, so a page targeting
+ # a different platform has no access to another page's sources otherwise.
+ d=require_page(a,b)
+ fa=safe(o.get('from-project'),'source project identifier');fb=safe(o.get('from-page'),'source page identifier');fc=sid(o.get('from-source'))
+ osrc=read(src(fa,fb,fc)/'source.json')
+ if osrc['status']!='READY':bad(f"Source {fc} is {osrc['status']}, not READY.")
+ force=o.get('force-new') in (True,'true')
+ du=next((x for x in sources(a,b) if (x.get('provenance') or {}).get('convertedFrom')=={'project':fa,'page':fb,'sourceId':fc}),None)
+ if du and not force:
+  if du['status']=='READY':return {'projectId':a,'pageId':b,'sourceId':du['id'],'root':str(src(a,b,du['id'])),'reused':True}
+  bad(f"Matching converted source {du['id']} is {du['status']}. Reuse it, or pass --force-new for a fresh copy.")
+ ident=numbered(d/'sources','source');r=src(a,b,ident);orig=src(fa,fb,fc)
+ for x in ('spec','assets','reference'):
+  cp(orig/x,r/x) if (orig/x).exists() else (r/x).mkdir(parents=True,exist_ok=True)
+ if (orig/'asset-manifest.json').exists():cp(orig/'asset-manifest.json',r/'asset-manifest.json')
+ t=now();write(r/'source.json',{'id':ident,'status':'READY','fingerprint':osrc.get('fingerprint'),'extractionMode':osrc.get('extractionMode','FULL'),'baseSourceId':None,'changeSet':None,'figma':copy.deepcopy(osrc['figma']),'referenceState':{k:'REUSED' for k in osrc.get('referenceState',{})},'provenance':{'reusedFrom':None,'refreshedSections':[],'refreshedAssets':[],'appliedPatches':[],'convertedFrom':{'project':fa,'page':fb,'sourceId':fc}},'callLedger':[],'forceNewReason':None,'createdAt':t,'completedAt':t,'warnings':[],'error':None})
+ return {'projectId':a,'pageId':b,'sourceId':ident,'root':str(r),'reused':False,'convertedFrom':{'project':fa,'page':fb,'sourceId':fc}}
 def call(a,b,c,o):
  f=src(a,b,c)/'source.json';s=read(f)
  if s['status']!='EXTRACTING':bad(f"Source {c} is immutable because it is {s['status']}.")
@@ -504,16 +530,51 @@ def newrun(a,b,o):
  i=numbered(d/'runs','run');r=run(a,b,i)
  for x in ('candidates','generated','visual','qa'):(r/x).mkdir(parents=True,exist_ok=True)
  t=now();g,gs,h=snapshot(a,b);(r/'effective-guidelines.md').write_text(g,encoding='utf8');write(r/'run.json',{'id':i,'status':'CREATED','sourceId':c,'sourceExtractionMode':s.get('extractionMode','FULL'),'baseSourceId':s.get('baseSourceId'),'previousRunId':p.get('currentRunId'),'startedAt':t,'completedAt':None,'guidelineSnapshot':{'sources':gs,'sha256':h},'repair':{'round':0,'maxRounds':3},'candidates':[],'events':[{'at':t,'type':'created','sourceId':c}],'error':None});update(d/'page.json',lambda x:{**x,'status':'BUILDING','currentRunId':i,'updatedAt':t});active(project=a,page=b,run=i,round=0,status='CREATED',candidate=None,task=None);return {'projectId':a,'pageId':b,'runId':i,'sourceId':c,'root':str(r),'guidelineSnapshot':{'sources':[x['path'] for x in gs]}}
+def newconversionrun(a,b,o):
+ # A conversion run is an ordinary run (same run.json status machine) whose
+ # BUILDING phase transforms an accepted candidate from another platform's
+ # page instead of extracting fresh from Figma. Reuses newrun()'s scaffold
+ # entirely; only a convertedFrom provenance field is added afterward.
+ direction=str(o.get('direction') or '')
+ if direction not in ('m3-to-medichannel','medichannel-to-m3'):bad('new-conversion-run requires --direction m3-to-medichannel|medichannel-to-m3.')
+ to_plat='medichannel' if direction.endswith('medichannel') else 'html5'
+ plat=platform_of(a)
+ if plat!=to_plat:bad(f"Target project {a} has platform {plat or '<none>'}, but --direction {direction} targets {to_plat}.")
+ fa=safe(o.get('from-project'),'source project identifier');fb=safe(o.get('from-page'),'source page identifier');fr=rid(o.get('from-run'))
+ fc=o.get('from-candidate')
+ if not fc or fc is True:bad('new-conversion-run requires --from-candidate <id>.')
+ fc=safe(fc,'source candidate identifier')
+ fs=read(run(fa,fb,fr)/'run.json')
+ if fs.get('acceptedCandidateId')!=fc:bad(f"{fc} is not the accepted candidate of {fa}/{fb}/{fr}.")
+ cs=convertsource(a,b,{'from-project':fa,'from-page':fb,'from-source':fs['sourceId']})
+ rv=newrun(a,b,{'source':cs['sourceId']});i=rv['runId']
+ meta={'project':fa,'page':fb,'run':fr,'candidate':fc,'direction':direction}
+ update(run(a,b,i)/'run.json',lambda x:{**x,'convertedFrom':meta})
+ return {**rv,'convertedFrom':meta}
 def candidate(a,b,c,o):
  s=mutable(a,b,c);r=run(a,b,c);i=numbered(r/'candidates','candidate');d=r/'candidates'/i;d.mkdir(parents=True);n=int(o.get('round',s['repair']['round']))
  if n<0 or n>s['repair']['maxRounds']:bad('Candidate round is outside the configured repair range.')
- if str(o.get('from-accepted','')).lower() in ('true','1') or o.get('from-accepted') is True:
+ from_accepted=str(o.get('from-accepted','')).lower() in ('true','1') or o.get('from-accepted') is True
+ convertedfrom=None
+ if from_accepted:
+  if o.get('from-external'):bad('--from-accepted cannot be combined with --from-external.')
   if not s.get('acceptedCandidateId'):bad('Cannot seed from accepted output because no candidate has been accepted.')
   cp(r/'generated',d)
+ elif o.get('from-external'):
+  # Seeds a candidate from another page's accepted output for a channel-
+  # conversion run. The frozen source payload lives in a subfolder so it
+  # never collides with this candidate's own (target-shaped) output tree.
+  xa,xb,xr,xc=extref(o['from-external']);xrun=read(run(xa,xb,xr)/'run.json')
+  if xrun.get('acceptedCandidateId')!=xc:bad(f"{xc} is not the accepted candidate of {xa}/{xb}/{xr}.")
+  xd=run(xa,xb,xr)/'generated'
+  if not xd.exists():bad(f'No accepted output found at {xa}/{xb}/{xr}/generated.')
+  cp(xd,d/'_conversion-input');convertedfrom={'project':xa,'page':xb,'run':xr,'candidate':xc}
  spec=payload_spec(a,read(page(a,b)/'page.json').get('articlePath'))
  if spec['kind']=='flat':(d/'images').mkdir(exist_ok=True)
  else:(d/jcr_paths(spec)[1]).mkdir(parents=True,exist_ok=True)
- t=now();write(d/'candidate.json',{'id':i,'projectId':a,'pageId':b,'runId':c,'sourceId':s['sourceId'],'baseSourceId':s.get('baseSourceId'),'round':n,'scope':o.get('scope','full-page'),'status':'PENDING','createdAt':t,'evaluatedAt':None,'metrics':None,'reasons':[]})
+ t=now();cand={'id':i,'projectId':a,'pageId':b,'runId':c,'sourceId':s['sourceId'],'baseSourceId':s.get('baseSourceId'),'round':n,'scope':o.get('scope','full-page'),'status':'PENDING','createdAt':t,'evaluatedAt':None,'metrics':None,'reasons':[]}
+ if convertedfrom:cand['convertedFrom']=convertedfrom
+ write(d/'candidate.json',cand)
  update(r/'run.json',lambda x:{**x,'candidates':[ *x['candidates'],{'id':i,'status':'PENDING','createdAt':t,'round':n,'scope':o.get('scope','full-page'),'sourceId':x['sourceId']}],'events':[ *x['events'],{'at':t,'type':'candidate-created','candidateId':i,'round':n,'scope':o.get('scope','full-page')} ]});active(project=a,page=b,run=c,candidate=i,round=n,task=o.get('scope','full-page'));return {'projectId':a,'pageId':b,'runId':c,'candidateId':i,'root':str(d)}
 def result(a,b,c,i,o):
  s=mutable(a,b,c);r=run(a,b,c);d=r/'candidates'/i;f=d/'candidate.json';st=str(o.get('status','')).upper()
@@ -523,7 +584,7 @@ def result(a,b,c,i,o):
  if st=='ACCEPTED' and m and m.get('status')=='ERROR':bad(f"Visual evidence is unavailable, so this candidate cannot be accepted: {m.get('reason') or 'comparison error'}. Fix the evidence and re-measure; do not treat it as a visual failure.")
  if st=='ACCEPTED' and any(not q or q.get('status')!='PASS' for q in (m,static,browser)):bad('Accepted candidates require passing static, browser, and visual reports.')
  t=now();x=read(f);x.update(status=st,evaluatedAt=t,metrics=m,evidence={'static':static,'browser':browser},reasons=[o['reason']] if o.get('reason') else []);write(f,x)
- if st=='ACCEPTED':rm(r/'generated');cp(d,r/'generated');(r/'generated'/'candidate.json').unlink(missing_ok=True);rm(r/'generated'/'structural-check');rm(r/'qa');(r/'qa').mkdir()
+ if st=='ACCEPTED':rm(r/'generated');cp(d,r/'generated');(r/'generated'/'candidate.json').unlink(missing_ok=True);rm(r/'generated'/'structural-check');rm(r/'generated'/'_conversion-input');rm(r/'qa');(r/'qa').mkdir()
  def fn(z):
   q={'id':i,'status':st,'evaluatedAt':t,'round':z['repair']['round'],'metrics':m,'evidence':{'static':static.get('status') if static else None,'browser':browser.get('status') if browser else None},'reasons':x['reasons'],'sourceId':z['sourceId']};z['candidates']=[{**v,**q} if v['id']==i else v for v in z['candidates']];z['acceptedCandidateId']=i if st=='ACCEPTED' else z.get('acceptedCandidateId');z['events'].append({'at':t,'type':'candidate','candidateId':i,'status':st});return z
  update(r/'run.json',fn);return {'projectId':a,'pageId':b,'runId':c,'candidateId':i,'status':st,'acceptedCandidateId':i if st=='ACCEPTED' else s.get('acceptedCandidateId')}
@@ -564,6 +625,46 @@ def release(a,b,c):
  if summary(a,b,c)['status']!='PASS' or not (r/'qa/release-verifier.json').exists():bad('Cannot release without passing QA and a recorded release-verifier verdict.')
  payload(r/'generated','Generated output',payload_spec(a,read(page(a,b)/'page.json').get('articlePath')))
  d=page(a,b);i=numbered(d/'releases','v');target=d/'releases'/i;cp(r/'generated',target/'site');cp(r/'effective-guidelines.md',target/'effective-guidelines.md');cp(r/'qa',target/'qa');checks={x.relative_to(target/'site').as_posix():hashlib.sha256(x.read_bytes()).hexdigest() for x in (target/'site').rglob('*') if x.is_file()};write(target/'release.json',{'releaseId':i,'runId':c,'sourceId':s['sourceId'],'createdAt':now(),'checksums':checks});rm(d/'current');cp(target/'site',d/'current');done=transition(a,b,c,'COMPLETED',{'releaseId':i});cp(r/'run.json',target/'run.json');update(d/'page.json',lambda x:{**x,'status':'COMPLETED','currentRunId':c,'currentReleaseId':i,'updatedAt':done['completedAt']});return {'projectId':a,'pageId':b,'runId':c,'releaseId':i,'release':str(target)}
+QA_PDF=('content','visual-cutoff')
+def newpdfexport(a,b,c,o):
+ # PDF export is a side artifact attached to a run, not a run-state
+ # transition, so it must work whether the run is terminal or not: it never
+ # touches run.json/transition(), only reads acceptedCandidateId from it.
+ s=read(run(a,b,c)/'run.json');fc=o.get('from-candidate')
+ if not fc or fc is True:bad('new-pdf-export requires --from-candidate <id>.')
+ if s.get('acceptedCandidateId')!=fc:bad(f"{fc} is not the accepted candidate of run {c}.")
+ pd=run(a,b,c)/'pdf';i=numbered(pd,'pdf');d=pd/i;d.mkdir(parents=True)
+ t=now();write(d/'pdf.json',{'id':i,'projectId':a,'pageId':b,'runId':c,'sourceCandidateId':fc,'status':'PENDING','createdAt':t,'completedAt':None})
+ return {'projectId':a,'pageId':b,'runId':c,'pdfId':i,'root':str(d)}
+def pdfresult(a,b,c,i,o):
+ d=run(a,b,c)/'pdf'/i;f=d/'pdf.json'
+ if not f.exists():bad(f'PDF export does not exist: {i}')
+ st=str(o.get('status','')).upper()
+ if st not in ('READY','FAILED'):bad('pdf-result requires --status ready|failed.')
+ meta=read(Path(o['file'])) if o.get('file') else {}
+ t=now();update(f,lambda x:{**x,**meta,'status':st,'completedAt':t});return {'projectId':a,'pageId':b,'runId':c,'pdfId':i,'status':st}
+def pdfqarecord(a,b,c,i,k,o):
+ d=run(a,b,c)/'pdf'/i
+ if k not in QA_PDF:bad(f"Unknown PDF QA kind: {k}. Use one of: {', '.join(QA_PDF)}.")
+ if not (d/'pdf.json').exists():bad(f'PDF export does not exist: {i}')
+ q=read(Path(o['file']))
+ if q.get('kind')!=k or q.get('status') not in {'PASS','FAIL','UNAVAILABLE'} or not isinstance(q.get('findings'),list):bad(f'QA file kind {q.get("kind","<missing>")} does not match {k}.')
+ q.update(runId=c,pdfId=i);q.setdefault('checkedAt',now());(d/'qa').mkdir(exist_ok=True);write(d/'qa'/f'{k}.json',q)
+ return {'projectId':a,'pageId':b,'runId':c,'pdfId':i,'kind':k,'status':q['status']}
+def pdfqasummary(a,b,c,i):
+ d=run(a,b,c)/'pdf'/i;q={k:read(d/'qa'/f'{k}.json') if (d/'qa'/f'{k}.json').exists() else None for k in QA_PDF}
+ missing=[k for k in QA_PDF if not q[k]];failed=[k for k in QA_PDF if q[k] and q[k].get('status')!='PASS']
+ v={'status':'PASS' if not(missing or failed) else 'FAIL','checkedAt':now(),'required':list(QA_PDF),'missing':missing,'failed':failed,'checks':{k:q[k].get('status') if q[k] else 'MISSING' for k in QA_PDF}}
+ write(d/'qa/summary.json',v);return v
+def pdfrelease(a,b,c,i):
+ d=run(a,b,c)/'pdf'/i;f=d/'pdf.json'
+ if not f.exists():bad(f'PDF export does not exist: {i}')
+ if pdfqasummary(a,b,c,i)['status']!='PASS':bad('Cannot release a PDF without passing its QA gate.')
+ srcpdf=d/'index.pdf'
+ if not srcpdf.exists():bad(f'PDF export {i} has no index.pdf.')
+ pg=page(a,b);cp(srcpdf,pg/'current'/'index.pdf');relid=read(pg/'page.json').get('currentReleaseId')
+ if relid:cp(srcpdf,pg/'releases'/relid/'pdf'/'index.pdf')
+ update(f,lambda x:{**x,'releasedAt':now()});return {'projectId':a,'pageId':b,'runId':c,'pdfId':i,'released':True,'releaseId':relid}
 def resolve(a,b,c,o):
  f=src(a,b,c)/'source.json';s=read(f)
  if s['status']!='EXTRACTING':bad(f"Source {c} is immutable because it is {s['status']}.")
@@ -619,6 +720,8 @@ def main():
  elif cmd=='source-delta':out=sourcedelta(p[0],p[1],p[2])
  elif cmd=='source-patch':out=patch(p[0],p[1],p[2],o)
  elif cmd=='new-run':out=newrun(p[0],p[1],o)
+ elif cmd=='convert-source':out=convertsource(p[0],p[1],o)
+ elif cmd=='new-conversion-run':out=newconversionrun(p[0],p[1],o)
  elif cmd=='transition':out=transition(p[0],p[1],p[2],p[3])
  elif cmd=='new-candidate':out=candidate(p[0],p[1],p[2],o)
  elif cmd=='candidate-result':out=result(p[0],p[1],p[2],p[3],o)
@@ -626,6 +729,11 @@ def main():
  elif cmd=='qa-summary':out=summary(p[0],p[1],p[2])
  elif cmd=='release-check':out=releasecheck(p[0],p[1],p[2],o)
  elif cmd=='release':out=release(p[0],p[1],p[2])
+ elif cmd=='new-pdf-export':out=newpdfexport(p[0],p[1],p[2],o)
+ elif cmd=='pdf-result':out=pdfresult(p[0],p[1],p[2],p[3],o)
+ elif cmd=='pdf-qa-record':out=pdfqarecord(p[0],p[1],p[2],p[3],p[4],o)
+ elif cmd=='pdf-qa-summary':out=pdfqasummary(p[0],p[1],p[2],p[3])
+ elif cmd=='pdf-release':out=pdfrelease(p[0],p[1],p[2],p[3])
  elif cmd=='resolve-question':out=resolve(p[0],p[1],p[2],o)
  elif cmd=='source-fail':out=srcfail(p[0],p[1],p[2],o.get('message'))
  elif cmd=='next-repair':out=nextrepair(p[0],p[1],p[2])

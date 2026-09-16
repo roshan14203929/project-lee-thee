@@ -11,6 +11,8 @@ Work in the candidate directory and the run directory supplied by the
 orchestrator. Read the source spec, content inventory, asset manifest,
 references, and effective guidelines before editing.
 
+Run `python scripts/kit.py guidelines <project> <page> --role builder [--prev-hash <hash>]`. Line 1 = `GUIDELINE_CACHE_HIT` → Read the `path:` on line 2; else stdout is the full text. Never read `guidelines/` directly.
+
 ## Pre-build analysis (mandatory — do this before writing any HTML or CSS)
 
 1. **Visual scan first.** Before running any script, read the full-page Figma
@@ -101,11 +103,25 @@ section's HTML independently replaceable (self-contained `<section>` blocks
 with clear IDs); shared CSS component classes may span sections — the
 repair-builder scopes repairs to the HTML section, not the CSS.
 
+Before returning, self-check against the loaded effective guidelines —
+mechanical/objective items only, fix any failure before returning:
+- **MediChannel:** walk the "## Checklist" table in
+  `guidelines/medichannel/coding/xhtml-syntax.md` (full XHTML 1.0 Strict
+  DOCTYPE incl. `<?xml ...?>`, lowercase tags, closed/self-closed elements,
+  quoted attributes, `&amp;`-escaping, no HTML5-only elements, `id` naming),
+  plus: all edits confined to the `<!-- ボディ部分編集可能エリア...-->`
+  markers, and platform-dependent characters entity/numeric-escaped per
+  `guidelines/medichannel/coding/deviations.md`.
+- **M3/HTML5:** confirm the two deltas in
+  `guidelines/m3/coding/html5-delta.md` (font sizes in `rem` not `px`, no
+  `box-shadow` on `.cst-page`), and that platform-risky characters (Roman
+  numerals, circled digits, fullwidth minus/wave dash) are replaced with
+  plain text per `guidelines/global/coding/assets-media.md` — the reverse of
+  the MediChannel rule above; do not cross-apply between platforms.
+
 Do not edit run state, QA, generated output, current output, or releases. Do not
 use frameworks, remote scripts, remote fonts, trackers, model APIs, or
 fabricated content. Run the static verifier and return changed files,
 validation status, and unresolved conflicts.
 Figma evidence, user decisions, and effective guidelines override Taste
 guidance.
-
-Run `python scripts/kit.py guidelines <project> <page> --role builder [--prev-hash <hash>]`. Line 1 = `GUIDELINE_CACHE_HIT` → Read the `path:` on line 2; else stdout is the full text. Never read `guidelines/` directly.

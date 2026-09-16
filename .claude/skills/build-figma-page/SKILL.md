@@ -29,6 +29,11 @@ Read these references before acting:
   build or a repair. Apply it only to MediChannel pages; it supplements the
   effective guidelines and does not replace this workflow or its QA gates.
 - Read [commands.md](references/commands.md) for exact deterministic commands.
+- If the user asks to port an already-accepted page to the other platform,
+  read [channel-conversion.md](references/channel-conversion.md) before
+  starting the conversion run.
+- If the user asks for a PDF deliverable, read
+  [pdf-export.md](references/pdf-export.md) before exporting one.
 
 ## Inputs
 
@@ -146,3 +151,18 @@ every Agent tool invocation for that agent.
 
 Return the project/page, source, run, final QA statuses, visual metrics, release
 path when created, unresolved findings, and whether user input is required.
+
+## Optional workflows
+
+These trigger only when the user explicitly asks for them. Neither is part of
+the default sequence above, and neither weakens or bypasses the QA gates.
+
+- **Channel conversion** — porting an already-accepted run to the other
+  platform. Replaces step 5's normal build with a mechanical transform plus a
+  targeted builder pass to resolve what the transform can't decide
+  automatically; steps 6–11 (structural check through release) are unchanged.
+  Follow [channel-conversion.md](references/channel-conversion.md).
+- **PDF export** — an additional deliverable attached to a run once it has an
+  accepted candidate; it does not require the run to have reached
+  `COMPLETED`. Adds two independently blocking QA kinds beyond the four in
+  step 8. Follow [pdf-export.md](references/pdf-export.md).

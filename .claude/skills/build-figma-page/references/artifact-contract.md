@@ -25,6 +25,7 @@ projects/<project>/
       css-map.json
       candidates/candidate-###/
         candidate.json
+        _conversion-input/*            (conversion candidates only, see channel-conversion.md)
         images/*
         index.html
         base.css
@@ -42,11 +43,18 @@ projects/<project>/
       qa/summary.json
       qa/release-verifier.json
       qa/repair-round-*.json
+      pdf/pdf-###/                     (see pdf-export.md)
+        pdf.json
+        index.pdf
+        qa/content.json
+        qa/visual-cutoff.json
+        qa/summary.json
     current/
       images/*
       index.html
       base.css
       page.css
+      index.pdf                        (only once a PDF export has been released)
     releases/v-###/
       site/
         images/*
@@ -56,6 +64,7 @@ projects/<project>/
       run.json
       effective-guidelines.md
       qa/*
+      pdf/index.pdf                    (only when this release already existed when the PDF was released)
       release.json
 ```
 
@@ -112,6 +121,15 @@ generated, current, and release site payloads contain exactly `images/`,
 `index.html`, `base.css`, and `page.css` for HTML5/M3 — the nested MediChannel
 shape above for `medichannel` projects; source snapshots continue to use
 `assets/` for immutable Figma exports.
+
+A source materialized by `convert-source` (see `channel-conversion.md`) and a
+run/candidate created via `new-conversion-run`/`new-candidate --from-external`
+additionally carry a `convertedFrom` object recording the originating
+project/page/run/candidate. A candidate seeded with `--from-external` also
+gets a `_conversion-input/` subdirectory holding the frozen source payload;
+like `candidate.json` and `structural-check/`, it is diagnostic input, not
+part of the deployable payload — `verify-output.py` and `candidate-result`'s
+copy into `generated/` both exclude it automatically.
 
 Write `spec/spec.json` with:
 
@@ -193,6 +211,12 @@ require `id`, `severity`, and `message`; add `section`, `evidence`, and
 orchestrator can group findings by locality mechanically instead of parsing
 prose. Valid statuses are `PASS`, `FAIL`, and `UNAVAILABLE`. Valid severities
 are `critical`, `high`, `medium`, and `low`.
+
+A PDF export (`pdf-export.md`) uses the same QA object shape for its two
+required kinds, `content` and `visual-cutoff`, recorded with `pdf-qa-record`
+against `runId`, `candidateId` (the accepted candidate the export was built
+from), and `pdfId` instead of just `runId`/`candidateId`. `pdf-qa-summary`
+mirrors `qa-summary`: `PASS` only when both kinds are present and passing.
 
 ## Deterministic evidence locations
 

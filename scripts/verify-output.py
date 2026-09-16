@@ -161,10 +161,12 @@ def main() -> int:
     if spec["kind"] == "flat":
         expected = ["base.css", "images", "index.html", "page.css"]
         try:
-            # candidate.json is lifecycle metadata and structural-check/ is
-            # pre-acceptance diagnostic evidence (per the artifact contract, both live
-            # in the candidate dir). Neither is part of the deployable payload.
-            found = sorted(entry.name for entry in root.iterdir() if entry.name not in ("candidate.json", "structural-check"))
+            # candidate.json is lifecycle metadata, structural-check/ is
+            # pre-acceptance diagnostic evidence, and _conversion-input/ is the
+            # frozen source payload for a channel-conversion candidate (per the
+            # artifact contract, all three live in the candidate dir). None of
+            # them are part of the deployable payload.
+            found = sorted(entry.name for entry in root.iterdir() if entry.name not in ("candidate.json", "structural-check", "_conversion-input"))
         except Exception:
             found = []
         if found != expected:
@@ -179,7 +181,7 @@ def main() -> int:
         stray: list[str] = []
         for entry in sorted(root.rglob("*")):
             rel = entry.relative_to(root)
-            if rel.parts[0] in ("candidate.json", "structural-check"):
+            if rel.parts[0] in ("candidate.json", "structural-check", "_conversion-input"):
                 continue
             if rel == assets_rel or assets_rel in rel.parents:
                 continue
