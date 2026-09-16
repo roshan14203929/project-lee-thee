@@ -238,7 +238,11 @@ def _medichannel_project(project_id: str, page_id: str, article_path: str) -> No
     kit("init-page", project_id, page_id, "Home", "--article-path", article_path)
 
 
-def test_verify_output_auto_detects_medichannel_shape_from_candidate_json(project_factory, tmp_path) -> None:
+def test_verify_output_validates_a_medichannel_jcr_payload_with_explicit_flags(project_factory, tmp_path) -> None:
+    # A native MediChannel candidate now auto-detects flat (see
+    # test_verify_output.py), so a hand-built nested JCR payload -- e.g. a
+    # materialized artifact, which has no candidate.json/runId of its own --
+    # is validated with the explicit --platform flags, per commands.md.
     import subprocess, sys as _sys
     repo_root = Path(__file__).resolve().parents[1]
     project_id, page_id = "verify-output-medichannel-test", "home"
@@ -270,7 +274,11 @@ def test_verify_output_auto_detects_medichannel_shape_from_candidate_json(projec
     (payload / assets_rel / "hero.png").write_text("fake-png", encoding="utf-8")
 
     result = subprocess.run(
-        [_sys.executable, str(repo_root / "scripts" / "verify-output.py"), "--root", str(payload)],
+        [
+            _sys.executable, str(repo_root / "scripts" / "verify-output.py"), "--root", str(payload),
+            "--platform", "medichannel", "--content-root", "Test/Region/048-MediChannel/ja/jp",
+            "--dam-root", "test-region", "--css-root", "test-region/css", "--article-path", article_path,
+        ],
         cwd=repo_root, capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stderr
@@ -307,7 +315,11 @@ def test_verify_output_flags_a_stray_file_outside_the_jcr_subtrees(project_facto
     (payload / "stray-file.txt").write_text("should not be here", encoding="utf-8")
 
     result = subprocess.run(
-        [_sys.executable, str(repo_root / "scripts" / "verify-output.py"), "--root", str(payload)],
+        [
+            _sys.executable, str(repo_root / "scripts" / "verify-output.py"), "--root", str(payload),
+            "--platform", "medichannel", "--content-root", "Test/Region/048-MediChannel/ja/jp",
+            "--dam-root", "test-region", "--css-root", "test-region/css", "--article-path", article_path,
+        ],
         cwd=repo_root, capture_output=True, text=True,
     )
     assert result.returncode != 0

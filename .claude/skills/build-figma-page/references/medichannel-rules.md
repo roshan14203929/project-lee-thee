@@ -8,9 +8,16 @@ MCP and every required QA gate.
 
 ## Template and section mapping
 
-- Treat the supplied delivery template as the structural authority and as
-  read-only. Build and test in the current candidate, then transfer only
-  finished code into the template's designated editable region.
+- The build/repair/QA candidate is flat (`index.html`/`base.css`/`page.css`/
+  `images/`, same contract as HTML5/M3) — build and test entirely there. The
+  supplied delivery template
+  (`delivery-templates/medichannel/<template>/shell.html`, read-only
+  structural authority) only enters the picture at materialization
+  (`materialize-medichannel.py`, at release or on demand), which transfers
+  the finished flat output into the template's designated editable region
+  automatically. See `medichannel-materialization.md`. This does not apply to
+  a channel-conversion run, whose candidates are already nested — see
+  `channel-conversion.md`.
 - Map normalized Figma sections to the closest template component by semantic
   role and keep source order. Omit optional template sections absent from the
   source; never emit placeholders.

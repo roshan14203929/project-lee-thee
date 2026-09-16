@@ -3,9 +3,9 @@
 Run from the kit root.
 
 ```bash
-python scripts/kit.py init-project <project> "<name>" --platform medichannel [--content-root <path>] [--dam-root <path>] [--css-root <path>]
+python scripts/kit.py init-project <project> "<name>" --platform medichannel [--content-root <path>] [--dam-root <path>] [--css-root <path>] [--template 1column]
 python scripts/kit.py init-project <project> "<name>" --platform html5
-python scripts/kit.py set-platform <project> --platform medichannel|html5 [--content-root <path>] [--dam-root <path>] [--css-root <path>]
+python scripts/kit.py set-platform <project> --platform medichannel|html5 [--content-root <path>] [--dam-root <path>] [--css-root <path>] [--template 1column]
 python scripts/kit.py init-page <project> <page> "<name>" [--article-path <path>]
 python scripts/kit.py new-source <project> <page> --variant desktop=<url> --variant mobile=<url>
 python scripts/kit.py new-source <project> <page> --from-source <source> --changed-node desktop=<node-id> --reason "<change>"
@@ -53,6 +53,10 @@ python scripts/kit.py pdf-result <project> <page> <run> <pdf-id> --status ready|
 python scripts/kit.py pdf-qa-record <project> <page> <run> <pdf-id> content|visual-cutoff --file <qa.json>
 python scripts/kit.py pdf-qa-summary <project> <page> <run> <pdf-id>
 python scripts/kit.py pdf-release <project> <page> <run> <pdf-id>
+python scripts/kit.py new-materialization <project> <page> <run> [--from-candidate <candidate>]
+python scripts/materialize-medichannel.py --input <flat-dir> --output <dir> --content-root <path> --dam-root <path> --css-root <path> --article-path <path> [--template 1column] --output-report <report.json>
+python scripts/kit.py materialization-result <project> <page> <run> <materialization-id> --status ready|failed --file <report.json>
+python scripts/kit.py release-materialize <project> <page> <run>
 ```
 
 `create-qa-docs.py <TICKET>` generates four human-reviewer DOCX files under
@@ -68,11 +72,16 @@ as a single render report and may aggregate several viewport render reports.
 The `release` command requires the run to be `VERIFYING`, current-candidate
 passing reports for all four QA kinds, a matching recorded release-verifier
 verdict, and the exact generated payload: `images/`, `index.html`, `base.css`,
-and `page.css` for HTML5/M3 — the nested `content/`/`content/dam/`/`etc/designs/`
-tree described in `artifact-contract.md` for MediChannel, driven by
-`project.json.delivery` and `page.json.articlePath` (set via `init-project`/
-`set-platform --content-root/--dam-root/--css-root` and `init-page
---article-path`).
+and `page.css` — for HTML5/M3 **and** for every native MediChannel run (a run
+with no `convertedFrom.direction == "m3-to-medichannel"`). Only a
+channel-conversion run's release is the nested `content/`/`content/dam/`/
+`etc/designs/` tree described in `artifact-contract.md`. For a native
+MediChannel run, follow `release` with `release-materialize` to derive that
+nested tree as a separate, additional artifact — see
+`medichannel-materialization.md`. `project.json.delivery` and
+`page.json.articlePath` (set via `init-project`/`set-platform
+--content-root/--dam-root/--css-root/--template` and `init-page
+--article-path`) are only required at materialization time, not at build time.
 
 `guidelines` resolves the global, channel, project, and page layers in
 precedence order. With `--role` it includes that role's own file (`builder.md`,
@@ -148,3 +157,11 @@ which means *evidence is missing*, not that the page regressed.
 `render-pdf.py`, `pdf-result`, `pdf-qa-record`, `pdf-qa-summary`, and
 `pdf-release` attach a PDF deliverable to a run; see `pdf-export.md`. Both are
 optional workflows triggered only when the user asks for them.
+
+`new-materialization`, `materialize-medichannel.py`, `materialization-result`,
+and `release-materialize` derive the nested AEM/JCR tree from a *native*
+MediChannel run's flat output — mandatory once at release, optional on demand
+mid-run for a preview. Never confuse this with the channel-conversion commands
+above: conversion produces a genuinely nested candidate for a *new page*;
+materialization derives a nested *artifact* from the *same* page's own flat
+build. See `medichannel-materialization.md`.

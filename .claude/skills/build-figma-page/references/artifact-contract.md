@@ -1,6 +1,11 @@
 # Artifact contract
 
-**HTML5 / M3 (flat)** — `project.json.platform` is `html5`:
+**Flat payload** — `project.json.platform` is `html5`, **or** `medichannel`
+for a native build (any run whose `run.json` has no `convertedFrom`, or a
+`convertedFrom.direction` other than `m3-to-medichannel`). Native MediChannel
+builds/repairs/QA in exactly this shape, identical to HTML5/M3, through
+`BUILDING`/`VERIFYING`/`REFINING`/`release` — see `medichannel-materialization.md`
+for how (and when) the nested AEM/JCR tree gets derived from it:
 
 ```text
 projects/<project>/
@@ -49,6 +54,9 @@ projects/<project>/
         qa/content.json
         qa/visual-cutoff.json
         qa/summary.json
+      materialized/materialized-###/   (MediChannel only, see medichannel-materialization.md)
+        materialize.json
+        jcr/                            (nested AEM/JCR tree, see below)
     current/
       images/*
       index.html
@@ -65,17 +73,31 @@ projects/<project>/
       effective-guidelines.md
       qa/*
       pdf/index.pdf                    (only when this release already existed when the PDF was released)
+      jcr/                             (MediChannel only, see below; produced by release-materialize)
+      jcr-materialization-report.json  (MediChannel only)
       release.json
 ```
 
-**MediChannel (nested AEM JCR tree)** — `project.json.platform` is `medichannel`;
-`{contentRoot}`, `{damRoot}`, `{cssRoot}` come from `project.json.delivery`,
-`{articlePath}` from `page.json.articlePath` (see `commands.md`). Every
-`candidates/candidate-###/`, `generated/`, `current/`, and `releases/v-###/site/`
-payload below shares this same shape instead of the flat one:
+**Nested AEM/JCR tree** — `{contentRoot}`, `{damRoot}`, `{cssRoot}` come from
+`project.json.delivery`, `{articlePath}` from `page.json.articlePath` (see
+`commands.md`). This shape appears in two, unrelated places, and only for
+`medichannel` projects — never confuse them (see `channel-conversion.md` vs
+`medichannel-materialization.md`):
+
+- As the **entire** `candidates/candidate-###/`, `generated/`, `current/`,
+  and `releases/v-###/site/` payload, but **only** for a channel-conversion
+  run (`run.json.convertedFrom.direction == "m3-to-medichannel"`) — its
+  candidates are genuinely nested from creation, produced by
+  `convert-platform.py`'s real HTML5-\>XHTML structural transform.
+- As the **additional**, separate `materialized/materialized-###/jcr/` and
+  `releases/v-###/jcr/` artifacts for a *native* MediChannel run — derived
+  from the flat payload above by `materialize-medichannel.py`, never a
+  replacement for it.
 
 ```text
-    candidates/candidate-###/ (and generated/, current/, releases/v-###/site/)
+    (candidate-###/, generated/, current/, releases/v-###/site/ for a
+     channel-conversion run; or materialized-###/jcr/, releases/v-###/jcr/
+     for a native run's materialized artifact)
       candidate.json                                 (candidate dir only)
       content/{contentRoot}/{articlePath}.html
       content/dam/{damRoot}/{articlePath}/*           (image assets)
@@ -118,9 +140,10 @@ Candidates record `projectId`, `pageId`, `runId`, `sourceId`, and optional
 `baseSourceId` for explicit provenance; they do not copy source extraction data.
 `candidate.json` is lifecycle metadata, not deployable output. Candidate,
 generated, current, and release site payloads contain exactly `images/`,
-`index.html`, `base.css`, and `page.css` for HTML5/M3 — the nested MediChannel
-shape above for `medichannel` projects; source snapshots continue to use
-`assets/` for immutable Figma exports.
+`index.html`, `base.css`, and `page.css` for HTML5/M3 and every native
+MediChannel run — the nested shape above only for a channel-conversion run's
+candidates; source snapshots continue to use `assets/` for immutable Figma
+exports.
 
 A source materialized by `convert-source` (see `channel-conversion.md`) and a
 run/candidate created via `new-conversion-run`/`new-candidate --from-external`

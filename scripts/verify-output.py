@@ -37,9 +37,22 @@ def resolve_spec(root: Path, args: dict[str, str]) -> dict[str, object]:
     """Determine flat vs. MediChannel-JCR output shape.
 
     Auto-detects from the candidate's own candidate.json (written by kit.py's
-    `new-candidate`) so the normal orchestrated invocation needs no extra flags.
+    `new-candidate`) so the normal orchestrated invocation needs no extra
+    flags. A native MediChannel build is flat -- the same contract as
+    html5/M3 -- for the whole BUILDING/VERIFYING/REFINING lifecycle; only a
+    channel-conversion run's own candidates (run.json's
+    `convertedFrom.direction == "m3-to-medichannel"`, produced by
+    convert-platform.py's genuine HTML5->XHTML transform) are nested from
+    creation, so auto-detect only resolves to "jcr" for those. Legacy
+    candidate.json data with no `runId`, or a run.json that can't be read,
+    defaults to flat -- native is the norm now, not the exception.
+
     Falls back to explicit --platform/--content-root/--dam-root/--css-root/
-    --article-path for ad hoc invocations with no candidate.json present.
+    --article-path for ad hoc invocations with no candidate.json present --
+    this is also the documented way to independently validate a
+    *materialized* nested tree (releases/v-###/jcr/,
+    runs/<run>/materialized/materialized-###/jcr/), which has no
+    candidate.json of its own.
     """
     platform = args.get("platform")
     content_root = args.get("content-root")
@@ -48,7 +61,9 @@ def resolve_spec(root: Path, args: dict[str, str]) -> dict[str, object]:
     article_path = args.get("article-path")
     candidate_meta = read_json(root / "candidate.json")
     project_id = candidate_meta.get("projectId")
-    if not platform and project_id:
+    auto_detect = not platform and bool(project_id)
+    conversion = False
+    if auto_detect:
         project = read_json(ROOT / "projects" / str(project_id) / "project.json")
         platform = project.get("platform")
         delivery = project.get("delivery") or {}
@@ -59,7 +74,11 @@ def resolve_spec(root: Path, args: dict[str, str]) -> dict[str, object]:
         if page_id and not article_path:
             page = read_json(ROOT / "projects" / str(project_id) / "pages" / str(page_id) / "page.json")
             article_path = page.get("articlePath")
-    if platform != "medichannel":
+        run_id = candidate_meta.get("runId")
+        if page_id and run_id:
+            run = read_json(ROOT / "projects" / str(project_id) / "pages" / str(page_id) / "runs" / str(run_id) / "run.json")
+            conversion = (run.get("convertedFrom") or {}).get("direction") == "m3-to-medichannel"
+    if platform != "medichannel" or (auto_detect and not conversion):
         return {"kind": "flat"}
     missing = [
         name for name, value in (

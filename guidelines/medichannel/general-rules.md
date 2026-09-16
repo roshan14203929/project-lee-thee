@@ -4,9 +4,25 @@
 
 ## Template & Editable Area
 
-- Use the distributed `MediChannel_template`. Treat it as read-only outside the editable area.
-- Write HTML only between `<!-- ボディ部分編集可能エリアここから -->` and `<!-- ボディ部分編集可能エリアここまで -->` (the real marker used in every production ticket — not the English "Body editable area starts/ends here" phrasing).
-- `index.html` is excluded from the comment-stripping rule in `global/coding/css.md` — its structure, including the editable-area marker comments and everything outside the editable area, must stay identical to the reference template/example folder. Only the content written inside the editable area is authored and cleaned; the surrounding template is never modified.
+- Candidates build flat (`index.html`/`base.css`/`page.css`/`images/`, same
+  contract as HTML5/M3) through BUILDING/VERIFYING/REFINING. The distributed
+  `MediChannel_template` is versioned at
+  `delivery-templates/medichannel/<template>/shell.html` (default
+  `1column`); it is read-only structural authority, used only when the flat
+  candidate is materialized into the nested AEM/JCR tree
+  (`scripts/materialize-medichannel.py`, at release or on demand) — the
+  builder never edits it directly.
+- The materializer writes HTML only between
+  `<!-- ボディ部分編集可能エリアここから -->` and
+  `<!-- ボディ部分編集可能エリアここまで -->` (the real marker used in every
+  production ticket — not the English "Body editable area starts/ends here"
+  phrasing sometimes seen in older candidates) by splicing in the flat
+  candidate's own `<body>` content verbatim.
+- The shell's structure, including every marker comment and everything
+  outside the editable area, stays byte-identical to
+  `delivery-templates/medichannel/<template>/shell.html`; only the spliced
+  editable-area content and the two per-article CSS `<link>` hrefs change.
+  See `manifest.json` alongside the shell for the exact marker literals.
 - Load CSS/JS as external files, after the template's `desktop.css`/`script.css`.
 
 ## Document Type
@@ -19,7 +35,10 @@
 - Resolution: 72 dpi.
 - All files must have extensions; unify if a type is referenced with mixed extensions.
 - Delete before delivery: `Thumb.db`, `.DS_Store`, files starting with `._`, `_notes` folder.
-- Paths are document-root-relative (`/img/foo.jpg`), not relative (`../`).
+- Paths are document-root-relative (`/img/foo.jpg`), not relative (`../`) —
+  in the **materialized** artifact. The flat candidate itself uses ordinary
+  relative `images/...` paths, same as HTML5/M3; `materialize-medichannel.py`
+  rewrites them to the absolute DAM/CSS paths this rule requires.
 
 ## Meta Tags & Title
 

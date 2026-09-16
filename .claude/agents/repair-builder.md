@@ -44,9 +44,10 @@ mechanical/objective items only, fix any failure before returning:
   `guidelines/medichannel/coding/xhtml-syntax.md` (full XHTML 1.0 Strict
   DOCTYPE incl. `<?xml ...?>`, lowercase tags, closed/self-closed elements,
   quoted attributes, `&amp;`-escaping, no HTML5-only elements, `id` naming),
-  plus: all edits confined to the `<!-- ボディ部分編集可能エリア...-->`
-  markers, and platform-dependent characters entity/numeric-escaped per
-  `guidelines/medichannel/coding/deviations.md`.
+  plus: platform-dependent characters entity/numeric-escaped per
+  `guidelines/medichannel/coding/deviations.md`. The editable-area markers
+  are the materializer's concern, not this candidate's — a flat candidate has
+  no markers.
 - **M3/HTML5:** confirm the two deltas in
   `guidelines/m3/coding/html5-delta.md` (font sizes in `rem` not `px`, no
   `box-shadow` on `.cst-page`), and that platform-risky characters (Roman

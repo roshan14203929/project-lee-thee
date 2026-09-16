@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from kit import jcr_paths  # noqa: E402  (reuse the JCR path geometry kit.py already defines)
+from kit import jcr_paths, dam_prefix, css_prefix  # noqa: E402  (reuse the JCR path geometry kit.py already defines)
 
 
 def now() -> str:
@@ -338,22 +338,19 @@ def apply_html(html: str, direction: str, flagged: list[dict[str, object]]) -> s
 
 
 def rewrite_asset_paths(html: str, css: str, direction: str, delivery: dict[str, str] | None) -> tuple[str, str]:
+    assert delivery is not None
+    dam = dam_prefix(delivery)
+    css_dir = css_prefix(delivery)
     if direction == "m3-to-medichannel":
-        assert delivery is not None
-        dam_prefix = f"/content/dam/{delivery['damRoot']}/{delivery['articlePath']}/"
-        css_prefix = f"/etc/designs/code/{delivery['cssRoot']}/{delivery['articlePath']}/"
-        html = html.replace('src="images/', f'src="{dam_prefix}')
-        html = re.sub(r'href="(?:\./)?base\.css"', f'href="{css_prefix}base.css"', html)
-        html = re.sub(r'href="(?:\./)?page\.css"', f'href="{css_prefix}page.css"', html)
-        css = re.sub(r"url\((['\"]?)(?:\.\./)?images/", rf"url(\1{dam_prefix}", css)
+        html = html.replace('src="images/', f'src="{dam}')
+        html = re.sub(r'href="(?:\./)?base\.css"', f'href="{css_dir}base.css"', html)
+        html = re.sub(r'href="(?:\./)?page\.css"', f'href="{css_dir}page.css"', html)
+        css = re.sub(r"url\((['\"]?)(?:\.\./)?images/", rf"url(\1{dam}", css)
     else:
-        assert delivery is not None
-        dam_prefix = f"/content/dam/{delivery['damRoot']}/{delivery['articlePath']}/"
-        css_prefix = f"/etc/designs/code/{delivery['cssRoot']}/{delivery['articlePath']}/"
-        html = html.replace(f'src="{dam_prefix}', 'src="images/')
-        html = html.replace(f'href="{css_prefix}base.css"', 'href="base.css"')
-        html = html.replace(f'href="{css_prefix}page.css"', 'href="page.css"')
-        css = css.replace(f"url({dam_prefix}", "url(images/").replace(f"url('{dam_prefix}", "url('images/").replace(f'url("{dam_prefix}', 'url("images/')
+        html = html.replace(f'src="{dam}', 'src="images/')
+        html = html.replace(f'href="{css_dir}base.css"', 'href="base.css"')
+        html = html.replace(f'href="{css_dir}page.css"', 'href="page.css"')
+        css = css.replace(f"url({dam}", "url(images/").replace(f"url('{dam}", "url('images/").replace(f'url("{dam}', 'url("images/')
     return html, css
 
 

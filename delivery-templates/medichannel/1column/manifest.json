@@ -1,0 +1,14 @@
+{
+  "templateId": "1column",
+  "capturedFrom": "C:\\Users\\roshan.s.moolya\\Documents\\az-1-5\\_example-medichannel\\content\\PhysicianServices\\Japan\\048-MediChannel\\ja\\jp\\sample\\1columnTemplate.html",
+  "capturedAt": "2026-09-16T00:00:00Z",
+  "sha256": "97a8325268819f94740b4078ba346e1a73a14189cd46677df05e39cab5602176",
+  "markers": {
+    "headCssStart": "<!-- 個別CSS 設定ここから -->",
+    "headCssEnd": "<!-- 個別CSS 設定ここまで -->",
+    "bodyStart": "<!-- ボディ部分編集可能エリアここから -->",
+    "bodyEnd": "<!-- ボディ部分編集可能エリアここまで -->",
+    "jsStart": "<!-- 個別JS 設定ここから -->",
+    "jsEnd": "<!-- 個別JS 設定ここまで -->"
+  }
+}

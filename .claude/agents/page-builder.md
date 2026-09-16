@@ -82,20 +82,23 @@ taste-skill sections listed in `design-skills.md` (brief inference, guardrails,
 AI tells, pre-flight check) -- not the whole 87 KB file, most of which
 recommends frameworks and installs this workflow forbids.
 
-**HTML5/M3:** produce exactly `images/`, `index.html`, `base.css`, and
-`page.css` as deployable output. Keep global rules in `base.css`,
-page/component rules in `page.css`, and all local assets in `images/`.
+**HTML5/M3, and native MediChannel builds:** produce exactly `images/`,
+`index.html`, `base.css`, and `page.css` as deployable output. Keep global
+rules in `base.css`, page/component rules in `page.css`, and all local assets
+in `images/` — use ordinary relative `images/...` paths, never a
+document-root-absolute one. This applies to every MediChannel run created by
+`new-run` (a native build). The nested AEM/JCR tree is a separate,
+later artifact produced by `materialize-medichannel.py` (at release or on
+demand) by splicing this flat output into the stored delivery template — this
+agent never writes into `content/`/`etc/designs/`/`content/dam/` directly.
 
-**MediChannel:** the output is the nested AEM JCR tree in `artifact-contract.md`,
-not the flat shape. Read the project's `delivery` fields (`contentRoot`,
-`damRoot`, `cssRoot`) and the page's `articlePath` via `kit.py status <project>
-<page>` before writing anything. Write the article HTML to
-`content/{contentRoot}/{articlePath}.html`, CSS to
-`etc/designs/code/{cssRoot}/{articlePath}/{base.css,page.css}`, and images to
-`content/dam/{damRoot}/{articlePath}/`. Every image/CSS/link reference in the
-HTML is document-root-absolute into those same trees (e.g.
-`/content/dam/{damRoot}/{articlePath}/foo.png`) — never a relative `images/...`
-path. `new-candidate` pre-creates the DAM asset directory as a starting point.
+**Channel-conversion candidates only** (a run whose `run.json.convertedFrom
+.direction` is `m3-to-medichannel` — see `channel-conversion.md`): the
+candidate is already nested, produced by `convert-platform.py`'s mechanical
+transform, not flat. If invoked to resolve its `flagged` worklist, edit only
+within the existing nested document at `content/{contentRoot}/{articlePath}
+.html` (per `artifact-contract.md`'s nested shape) — do not flatten it or
+touch `_conversion-input/`.
 
 Use exact source copy, semantic elements, native controls, maintainable CSS,
 and responsive behavior derived from supplied variants. Keep each semantic
@@ -109,9 +112,10 @@ mechanical/objective items only, fix any failure before returning:
   `guidelines/medichannel/coding/xhtml-syntax.md` (full XHTML 1.0 Strict
   DOCTYPE incl. `<?xml ...?>`, lowercase tags, closed/self-closed elements,
   quoted attributes, `&amp;`-escaping, no HTML5-only elements, `id` naming),
-  plus: all edits confined to the `<!-- ボディ部分編集可能エリア...-->`
-  markers, and platform-dependent characters entity/numeric-escaped per
-  `guidelines/medichannel/coding/deviations.md`.
+  plus: platform-dependent characters entity/numeric-escaped per
+  `guidelines/medichannel/coding/deviations.md`. The editable-area markers
+  are the materializer's concern, not this candidate's — a flat candidate has
+  no markers.
 - **M3/HTML5:** confirm the two deltas in
   `guidelines/m3/coding/html5-delta.md` (font sizes in `rem` not `px`, no
   `box-shadow` on `.cst-page`), and that platform-risky characters (Roman

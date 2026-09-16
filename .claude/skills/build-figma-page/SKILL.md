@@ -28,6 +28,11 @@ Read these references before acting:
   [medichannel-rules.md](references/medichannel-rules.md) before delegating the
   build or a repair. Apply it only to MediChannel pages; it supplements the
   effective guidelines and does not replace this workflow or its QA gates.
+- For a MediChannel delivery, also read
+  [medichannel-materialization.md](references/medichannel-materialization.md)
+  before releasing: every native MediChannel run builds flat like HTML5/M3,
+  and the nested AEM/JCR tree the client's CMS expects is derived from that
+  flat output as a mandatory post-release step.
 - Read [commands.md](references/commands.md) for exact deterministic commands.
 - If the user asks to port an already-accepted page to the other platform,
   read [channel-conversion.md](references/channel-conversion.md) before
@@ -142,7 +147,11 @@ every Agent tool invocation for that agent.
    machine QA JSON gates (`qa-record` / `qa-summary`) are separate and both are
    required.
 9. If every gate passes, invoke the release verifier and create a versioned
-   release.
+   release. For a MediChannel page, immediately follow with `release-materialize`
+   and `materialize-medichannel.py` to derive the nested AEM/JCR tree
+   (`releases/v-###/jcr/`) from the just-released flat `site/` — mandatory,
+   deterministic, and not a QA gate itself. See
+   `medichannel-materialization.md`.
 10. If gates fail and rounds remain, transition to `REFINING`, delegate a
     repair scoped to failed sections, evaluate the candidate, and repeat QA.
 11. Mark `NEEDS_REVIEW` when the cap is reached, improvement stalls, required
@@ -166,3 +175,9 @@ the default sequence above, and neither weakens or bypasses the QA gates.
   accepted candidate; it does not require the run to have reached
   `COMPLETED`. Adds two independently blocking QA kinds beyond the four in
   step 8. Follow [pdf-export.md](references/pdf-export.md).
+- **On-demand MediChannel materialization** — previewing the nested AEM/JCR
+  shape of a MediChannel run before release (e.g. for a human reviewing an
+  in-progress repair candidate in its delivered form). The release-time
+  materialization in step 9 is mandatory and separate from this; this is
+  purely an optional mid-run preview. Follow
+  [medichannel-materialization.md](references/medichannel-materialization.md).
