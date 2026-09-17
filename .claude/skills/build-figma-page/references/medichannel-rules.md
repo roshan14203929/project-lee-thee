@@ -23,10 +23,9 @@ MCP and every required QA gate.
   source; never emit placeholders.
 - When the source has no exact template equivalent, adapt the closest semantic
   component and record the deviation in the builder handoff or run report.
-- Keep each section independently replaceable so a repair can remain scoped to
-  the failed section.
-- Keep global element and token rules in `base.css` and page/component rules in
-  `page.css`, matching the candidate and release artifact contract.
+- Section independence and the `base.css`/`page.css` split are guideline rules
+  (BLD, CSS-017, CSS-018) already delivered to the builder — do not restate them
+  in the handoff.
 
 ## Content adaptation
 
@@ -39,8 +38,6 @@ MCP and every required QA gate.
 - For a content image, derive useful alternative text from the nearest
   preceding text node in the same parent container, preferring the nearest
   `h3` or `h4`. Small decorative SVG component instances use `alt=""`.
-- Use a Figma gradient value directly as a CSS `background`. Do not promote a
-  one-off gradient into a color token.
 
 ## MediChannel component conventions
 
@@ -65,11 +62,7 @@ MCP and every required QA gate.
 
 ## Token naming
 
-- Promote repeated source colors into `:root` custom properties. Prefer
-  `--color-white`, `--color-black`, `--color-text`, `--color-bg`,
-  `--color-primary`, and `--color-secondary` when the source context supports
-  those meanings.
-- Give remaining colors descriptive contextual names such as
-  `--color-accent-red` or `--color-navy`. Use numbered fallback names only when
-  the source provides no defensible semantic name.
-- Keep gradients as direct background values rather than color variables.
+- Token naming is owned by `guidelines/global/coding/base-css-template.md` and
+  CSS-006/CSS-007, which the builder already receives. The only addition here:
+  keep a Figma gradient as a direct `background` value, never promoted into a
+  colour token.

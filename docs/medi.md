@@ -258,3 +258,13 @@ Only inside `.cst-page`. Do **not** touch or flag:
 ### Validation
 
 Always validate. Missing closing tags, spelling errors, and unnecessary styles are not acceptable; code with validation errors may not publish.
+
+## Design-token consistency across a sibling series (provenance)
+
+MediChannel articles are frequently delivered as a sibling series — same pattern,
+different design variations (`article01`/`02`/`03`). Value variation between
+siblings is expected; the *semantic role mapping* must not vary. Found in
+production: one sibling named a colour `--color-secondary` while another used
+`--color-primary` for the same role. The shipped rule is
+`guidelines/medichannel/coding/deviations.md` (Design tokens) plus the
+name-to-role rule in `guidelines/global/coding/css.md`.

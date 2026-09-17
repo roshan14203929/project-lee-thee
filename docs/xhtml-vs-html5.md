@@ -1,6 +1,12 @@
 # XHTML 1.0 Strict vs HTML5 — Reference
 
-> For resolving XHTML-vs-HTML5-habit conflicts during build or QA. Element replacements are in `xhtml-syntax.md` — not repeated here.
+> Human and conversion-time reference. **Not** delivered to agents: a native
+> MediChannel candidate is authored as XHTML from the start, so a builder never
+> needs a "what HTML5 permits" comparison. The normative authoring rules live in
+> `guidelines/medichannel/coding/xhtml-syntax.md` (IDs `MCX-*`); this file is the
+> side-by-side lookup for resolving an XHTML-vs-HTML5 habit conflict, and for the
+> manual comparison step during an HTML5 -> XHTML conversion.
+
 
 ## DOCTYPE & Root Element
 

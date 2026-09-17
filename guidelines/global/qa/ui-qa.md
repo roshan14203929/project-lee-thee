@@ -1,57 +1,28 @@
 # UI QA defaults
 
+Procedures only. Report findings by ID; do not restate rules. Fidelity scope is
+FID-005 to FID-009 — blocking checks at supplied variants only, diagnostic
+elsewhere. Responsive breakpoint and horizontal-scroll checks belong to
+`technical-qa.md`; do not repeat them here.
+
 - Inspect reference, candidate, and difference images at every source viewport.
-- Treat only supplied variants as visual-fidelity targets. Checks at
-  unsupplied widths are diagnostic unless responsive behavior there is an
-  explicit user or page requirement; do not fail a desktop-only source for not
-  matching an invented mobile layout.
 - Check both full-page composition and localized bands.
 - Attribute mismatches to semantic sections and concrete CSS properties.
-- Verify responsive reflow, wrapping, clipping, stacking, sticky elements,
-  overlays, menus, interactive states, and media cropping. Responsive
-  breakpoint checks (viewport widths, no horizontal scroll) are covered in
-  `technical-qa.md` — don't duplicate them here.
+- Verify reflow, wrapping, clipping, stacking, sticky elements, overlays, menus, interactive states, media cropping.
 - Treat a numeric diff as evidence, not a substitute for visual diagnosis.
-- Do not recommend broad rewrites when a bounded section repair is possible.
+- Do not recommend a broad rewrite where a bounded section repair is possible.
 
-## Brand & Color
+## Visual checks
 
-- All hex values match brand guidelines.
-- If a brand color was changed for accessibility, flag for client notification (INFO severity).
+- Colors match Figma exactly (computed styles or eyedropper) -> CSS-006. A brand colour changed for accessibility is INFO, flag for client notification.
+- Brand font used consistently. Font size, weight, line-height match spec per section and element type. **Minimum 8px — anything smaller is a defect.**
+- Border widths exact -> CSS-009.
+- Spacing, padding, margins match the design. Layout, item order, component position/size/hierarchy match the reference. Base template correctly applied.
+- No layout breakdown at any breakpoint: overlapping or clipping.
+- Images and icons sharp, correct size, not stretched. Icon family, weight, size consistent throughout.
 
-## Typography
+## Interactive elements
 
-- Brand font used consistently throughout all text elements.
-- Font size, weight, and line-height match design specs per section and element type.
-- Minimum font size is 8px — flag anything smaller as a defect.
-- Border widths and font-size/line-height must match the Figma spec exactly (see `global/coding/css.md`).
-
-## Layout
-
-- Layout and item order match the wireframe/Figma reference exactly.
-- Base template correctly applied.
-- Component positions, sizes, images, icons, and hierarchy match the reference.
-- No layout breakdown at any breakpoint (no overlapping, clipping, or horizontal scroll).
-
-## Icons & Buttons
-
-- Icon styles consistent: same family, weight, and size throughout.
-- Button styles (primary, secondary, disabled) consistent. Disabled state and
-  edge-case variants require manual Peer Review verification — note this in findings.
-
-## Visual Fidelity
-
-- Colors match Figma exactly (verify via computed styles or eyedropper).
-- Font family, size, weight, and line-height match design specs.
-- Spacing, padding, and margins match design — no layout shifts.
-- Images and icons are sharp, correct size, not stretched or distorted.
-- Overall layout hierarchy and structure match the approved Figma.
-
-## Interactive Elements
-
-- All links and CTAs point to correct href targets; no broken links.
-- Hover, focus, and active states display correctly in browser (focus-ring
-  correctness itself is an accessibility-qa.md check — this is the visual
-  confirmation pass).
-- Hyperlinks match Figma component states — interactive state verification
-  requires manual browser confirmation; note in findings.
+- Links and CTAs resolve to the correct `href`; no broken links.
+- Hover, focus, and active states render correctly. Focus-ring *correctness* is an `accessibility-qa.md` check -> HTML-015; this is the visual confirmation pass.
+- Button variants (primary, secondary, disabled) consistent. Disabled and edge-case variants, and Figma component states, need manual browser/Peer Review confirmation — say so in findings.

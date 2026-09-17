@@ -2,7 +2,7 @@
 
 A local, multi-agent Figma-to-HTML workflow with immutable run state and four independent release gates.
 
-Fingerprint: `3606a060e92ca453` · 9 modules · 118 files · 14101 lines
+Fingerprint: `db5e135e49bdaa21` · 9 modules · 119 files · 14098 lines
 
 ## Start here
 
@@ -19,7 +19,7 @@ Fingerprint: `3606a060e92ca453` · 9 modules · 118 files · 14101 lines
 
 Defines repository purpose, commands, security boundaries, and guideline precedence.
 
-- Owns: 31 files, 1636 lines
+- Owns: 29 files, 1345 lines
 - Paths: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PROJECT_REFERENCE.md`, `guidelines/**`, `requirements.txt`, `requirements-dev.txt`, `.gitignore`, `.mcp.json`
 - Depends on: none
 - Used by: `artifact-contracts`, `codemap-skill`, `figma-workflow-skill`, `project-workspaces`, `state-controller`
@@ -31,7 +31,7 @@ Defines repository purpose, commands, security boundaries, and guideline precede
 
 Orchestrates Figma extraction, candidate construction, independent QA, repair, and release.
 
-- Owns: 13 files, 1469 lines
+- Owns: 13 files, 1461 lines
 - Paths: `.claude/skills/build-figma-page/**`
 - Depends on: `artifact-contracts`, `governance`, `host-adapters`, `render-and-qa`, `state-controller`, `validation-and-tests`
 - Used by: `host-adapters`, `project-workspaces`, `validation-and-tests`
@@ -97,7 +97,7 @@ Serves and renders candidates, measures browser output, compares pixels, verifie
 
 Checks repository integrity and exercises lifecycle invariants and mapping behavior.
 
-- Owns: 22 files, 2642 lines
+- Owns: 23 files, 2733 lines
 - Paths: `scripts/validate-kit.py`, `tests/**`
 - Depends on: `artifact-contracts`, `codemap-skill`, `figma-workflow-skill`, `host-adapters`, `render-and-qa`, `state-controller`
 - Used by: `figma-workflow-skill`
@@ -117,7 +117,7 @@ Provides the versioned template for project-local guideline workspaces while run
 
 ## Coverage
 
-### Uncovered files (11)
+### Uncovered files (13)
 
 - `.env`
 - `.vscode/settings.json`
@@ -127,6 +127,8 @@ Provides the versioned template for project-local guideline workspaces while run
 - `docs/global.md`
 - `docs/m3.md`
 - `docs/medi.md`
+- `docs/rule-ids.md`
+- `docs/xhtml-vs-html5.md`
 - `scripts/convert-platform.py`
 - `scripts/materialize-medichannel.py`
 - `scripts/render-pdf.py`

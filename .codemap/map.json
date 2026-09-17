@@ -3,12 +3,12 @@
   "project": "Layerlift Agent Kit",
   "description": "A local, multi-agent Figma-to-HTML workflow with immutable run state and four independent release gates.",
   "configHash": "f05355c49d4a2279e6c939030f919829ea6f596e8696b08268d4db21f9262df8",
-  "fingerprint": "3606a060e92ca453fc0c9f1e2cc18039dbb70c64057f6d88c7f619914334e5b3",
+  "fingerprint": "db5e135e49bdaa21f210de12019161f5807495dcaf24f70520dcc3cab40b53b1",
   "totals": {
-    "files": 118,
-    "lines": 14101,
+    "files": 119,
+    "lines": 14098,
     "modules": 9,
-    "uncovered": 11,
+    "uncovered": 13,
     "overlaps": 0
   },
   "entryPoints": [
@@ -49,8 +49,8 @@
         "state-controller"
       ],
       "externalDependencies": [],
-      "fileCount": 31,
-      "lines": 1636,
+      "fileCount": 29,
+      "lines": 1345,
       "files": [
         ".gitignore",
         ".mcp.json",
@@ -74,10 +74,8 @@
         "guidelines/m3/coding/html5-delta.md",
         "guidelines/m3/general-rules.md",
         "guidelines/m3/qa/qa-findings-reference.md",
-        "guidelines/medichannel/coding/design-token-consistency.md",
         "guidelines/medichannel/coding/deviations.md",
         "guidelines/medichannel/coding/xhtml-syntax.md",
-        "guidelines/medichannel/coding/xhtml-vs-html5-reference.md",
         "guidelines/medichannel/general-rules.md",
         "guidelines/medichannel/qa/coding-qa.md",
         "guidelines/medichannel/qa/qa-findings-reference.md",
@@ -120,7 +118,7 @@
       ],
       "externalDependencies": [],
       "fileCount": 13,
-      "lines": 1469,
+      "lines": 1461,
       "files": [
         ".claude/skills/build-figma-page/SKILL.md",
         ".claude/skills/build-figma-page/agents/openai.yaml",
@@ -440,8 +438,8 @@
         "sys",
         "test_conversion"
       ],
-      "fileCount": 22,
-      "lines": 2642,
+      "fileCount": 23,
+      "lines": 2733,
       "files": [
         "scripts/validate-kit.py",
         "tests/.pytest_cache/.gitignore",
@@ -464,6 +462,7 @@
         "tests/test_source_reuse.py",
         "tests/test_spec_compaction.py",
         "tests/test_state_controller.py",
+        "tests/test_threshold_consistency.py",
         "tests/test_verify_output.py"
       ]
     },
@@ -505,6 +504,8 @@
     "docs/global.md",
     "docs/m3.md",
     "docs/medi.md",
+    "docs/rule-ids.md",
+    "docs/xhtml-vs-html5.md",
     "scripts/convert-platform.py",
     "scripts/materialize-medichannel.py",
     "scripts/render-pdf.py"
@@ -712,9 +713,9 @@
     },
     {
       "path": ".claude/skills/build-figma-page/references/medichannel-rules.md",
-      "bytes": 4181,
-      "lines": 76,
-      "hash": "2b650b81edeb6c55",
+      "bytes": 3815,
+      "lines": 69,
+      "hash": "869b9dde2c9b1a1f",
       "oversized": false,
       "modules": [
         "figma-workflow-skill"
@@ -745,9 +746,9 @@
     },
     {
       "path": ".claude/skills/build-figma-page/references/qa-contract.md",
-      "bytes": 4509,
-      "lines": 89,
-      "hash": "2580fcd68a4715ad",
+      "bytes": 4419,
+      "lines": 88,
+      "hash": "1fd8afaaaf705559",
       "oversized": false,
       "modules": [
         "figma-workflow-skill"
@@ -903,9 +904,9 @@
     },
     {
       "path": "AGENTS.md",
-      "bytes": 4255,
+      "bytes": 4243,
       "lines": 80,
-      "hash": "62abc6d3eaf5c605",
+      "hash": "67ed31a14160bdd6",
       "oversized": false,
       "modules": [
         "governance"
@@ -974,36 +975,54 @@
     },
     {
       "path": "docs/global.md",
-      "bytes": 15034,
-      "lines": 320,
-      "hash": "4172c3ea0b7f192b",
+      "bytes": 15426,
+      "lines": 328,
+      "hash": "12b60ad59c7f09d9",
       "oversized": false,
       "modules": [],
       "imports": []
     },
     {
       "path": "docs/m3.md",
-      "bytes": 2637,
-      "lines": 73,
-      "hash": "da99c89285105050",
+      "bytes": 2964,
+      "lines": 80,
+      "hash": "15b3947a0676d22c",
       "oversized": false,
       "modules": [],
       "imports": []
     },
     {
       "path": "docs/medi.md",
-      "bytes": 11981,
-      "lines": 261,
-      "hash": "8cfbd888816bcb00",
+      "bytes": 12545,
+      "lines": 271,
+      "hash": "0af939e8aa6681ac",
+      "oversized": false,
+      "modules": [],
+      "imports": []
+    },
+    {
+      "path": "docs/rule-ids.md",
+      "bytes": 3297,
+      "lines": 89,
+      "hash": "c411df5663c3a779",
+      "oversized": false,
+      "modules": [],
+      "imports": []
+    },
+    {
+      "path": "docs/xhtml-vs-html5.md",
+      "bytes": 4038,
+      "lines": 91,
+      "hash": "3370d4c78d340e55",
       "oversized": false,
       "modules": [],
       "imports": []
     },
     {
       "path": "guidelines/builder.md",
-      "bytes": 5057,
-      "lines": 84,
-      "hash": "f414ffa795263299",
+      "bytes": 3769,
+      "lines": 63,
+      "hash": "88b7cdc4b1d264a9",
       "oversized": false,
       "modules": [
         "governance"
@@ -1012,9 +1031,9 @@
     },
     {
       "path": "guidelines/extractor.md",
-      "bytes": 6728,
-      "lines": 117,
-      "hash": "20f201763d48052a",
+      "bytes": 6342,
+      "lines": 84,
+      "hash": "9fe4288109c9b1b2",
       "oversized": false,
       "modules": [
         "governance"
@@ -1023,9 +1042,9 @@
     },
     {
       "path": "guidelines/global/coding/assets-media.md",
-      "bytes": 4089,
+      "bytes": 4325,
       "lines": 67,
-      "hash": "1df017152fce2da3",
+      "hash": "d9460a28e9a4ac1f",
       "oversized": false,
       "modules": [
         "governance"
@@ -1034,9 +1053,9 @@
     },
     {
       "path": "guidelines/global/coding/base-css-template.md",
-      "bytes": 4881,
-      "lines": 136,
-      "hash": "b9febadec6f9f9af",
+      "bytes": 2747,
+      "lines": 54,
+      "hash": "b33a665359f2f065",
       "oversized": false,
       "modules": [
         "governance"
@@ -1045,9 +1064,9 @@
     },
     {
       "path": "guidelines/global/coding/css.md",
-      "bytes": 4366,
+      "bytes": 4618,
       "lines": 56,
-      "hash": "86c7b31571a84e8d",
+      "hash": "536c066ce64d545c",
       "oversized": false,
       "modules": [
         "governance"
@@ -1056,9 +1075,9 @@
     },
     {
       "path": "guidelines/global/coding/html.md",
-      "bytes": 2404,
+      "bytes": 2458,
       "lines": 34,
-      "hash": "42427d432812ec14",
+      "hash": "f3d4d1feddccd63f",
       "oversized": false,
       "modules": [
         "governance"
@@ -1067,9 +1086,9 @@
     },
     {
       "path": "guidelines/global/fidelity.md",
-      "bytes": 2116,
+      "bytes": 2260,
       "lines": 41,
-      "hash": "bdb1190da0f77202",
+      "hash": "4ecb2d72a98339a7",
       "oversized": false,
       "modules": [
         "governance"
@@ -1078,9 +1097,9 @@
     },
     {
       "path": "guidelines/global/general-rules.md",
-      "bytes": 977,
+      "bytes": 986,
       "lines": 21,
-      "hash": "3d9d60e025ea4b54",
+      "hash": "08ba496caf27414b",
       "oversized": false,
       "modules": [
         "governance"
@@ -1089,9 +1108,9 @@
     },
     {
       "path": "guidelines/global/orchestrator.md",
-      "bytes": 2180,
+      "bytes": 2348,
       "lines": 50,
-      "hash": "d4c70a4bfcabaffb",
+      "hash": "c1a6a1bd0e139264",
       "oversized": false,
       "modules": [
         "governance"
@@ -1100,9 +1119,9 @@
     },
     {
       "path": "guidelines/global/qa/accessibility-qa.md",
-      "bytes": 858,
-      "lines": 14,
-      "hash": "e27eab64afbc8230",
+      "bytes": 587,
+      "lines": 11,
+      "hash": "6b51821c834e2f82",
       "oversized": false,
       "modules": [
         "governance"
@@ -1111,9 +1130,9 @@
     },
     {
       "path": "guidelines/global/qa/content-qa.md",
-      "bytes": 1370,
-      "lines": 32,
-      "hash": "9321c105710bccfc",
+      "bytes": 1405,
+      "lines": 25,
+      "hash": "e2811eb6ee325f5e",
       "oversized": false,
       "modules": [
         "governance"
@@ -1122,9 +1141,9 @@
     },
     {
       "path": "guidelines/global/qa/technical-qa.md",
-      "bytes": 1497,
-      "lines": 30,
-      "hash": "4f95732033f490fa",
+      "bytes": 1250,
+      "lines": 23,
+      "hash": "4080fd7028d428c4",
       "oversized": false,
       "modules": [
         "governance"
@@ -1133,9 +1152,9 @@
     },
     {
       "path": "guidelines/global/qa/ui-qa.md",
-      "bytes": 2710,
-      "lines": 58,
-      "hash": "96e050bdb32d6ff0",
+      "bytes": 1900,
+      "lines": 29,
+      "hash": "6b598b8294a5433a",
       "oversized": false,
       "modules": [
         "governance"
@@ -1144,9 +1163,9 @@
     },
     {
       "path": "guidelines/m3/coding/html5-delta.md",
-      "bytes": 936,
-      "lines": 14,
-      "hash": "4dad228547a22cea",
+      "bytes": 481,
+      "lines": 7,
+      "hash": "243892aec3755240",
       "oversized": false,
       "modules": [
         "governance"
@@ -1155,9 +1174,9 @@
     },
     {
       "path": "guidelines/m3/general-rules.md",
-      "bytes": 593,
+      "bytes": 607,
       "lines": 16,
-      "hash": "946fa3938872e4d0",
+      "hash": "10f124bebfb59aaa",
       "oversized": false,
       "modules": [
         "governance"
@@ -1166,20 +1185,9 @@
     },
     {
       "path": "guidelines/m3/qa/qa-findings-reference.md",
-      "bytes": 2030,
-      "lines": 21,
-      "hash": "3381fb171f9167a1",
-      "oversized": false,
-      "modules": [
-        "governance"
-      ],
-      "imports": []
-    },
-    {
-      "path": "guidelines/medichannel/coding/design-token-consistency.md",
-      "bytes": 740,
-      "lines": 9,
-      "hash": "5a45cf8ae56535b0",
+      "bytes": 903,
+      "lines": 18,
+      "hash": "6fee3f914b8d3764",
       "oversized": false,
       "modules": [
         "governance"
@@ -1188,9 +1196,9 @@
     },
     {
       "path": "guidelines/medichannel/coding/deviations.md",
-      "bytes": 3720,
-      "lines": 65,
-      "hash": "49a06b1941955ea7",
+      "bytes": 4243,
+      "lines": 69,
+      "hash": "50bd6b6472ec5e00",
       "oversized": false,
       "modules": [
         "governance"
@@ -1199,20 +1207,9 @@
     },
     {
       "path": "guidelines/medichannel/coding/xhtml-syntax.md",
-      "bytes": 3305,
-      "lines": 77,
-      "hash": "1b295053421aee63",
-      "oversized": false,
-      "modules": [
-        "governance"
-      ],
-      "imports": []
-    },
-    {
-      "path": "guidelines/medichannel/coding/xhtml-vs-html5-reference.md",
-      "bytes": 3709,
-      "lines": 85,
-      "hash": "676accd4c96687eb",
+      "bytes": 4154,
+      "lines": 70,
+      "hash": "d372f9b4492293b6",
       "oversized": false,
       "modules": [
         "governance"
@@ -1221,9 +1218,9 @@
     },
     {
       "path": "guidelines/medichannel/general-rules.md",
-      "bytes": 3474,
-      "lines": 65,
-      "hash": "6a3162f445c6f050",
+      "bytes": 3510,
+      "lines": 63,
+      "hash": "326ce1f3d9ba03c0",
       "oversized": false,
       "modules": [
         "governance"
@@ -1232,9 +1229,9 @@
     },
     {
       "path": "guidelines/medichannel/qa/coding-qa.md",
-      "bytes": 1224,
-      "lines": 16,
-      "hash": "aa2d21ea1fb8fee5",
+      "bytes": 914,
+      "lines": 13,
+      "hash": "3ce90062d0dc497c",
       "oversized": false,
       "modules": [
         "governance"
@@ -1243,9 +1240,9 @@
     },
     {
       "path": "guidelines/medichannel/qa/qa-findings-reference.md",
-      "bytes": 2073,
-      "lines": 19,
-      "hash": "0610c31eef561814",
+      "bytes": 1312,
+      "lines": 22,
+      "hash": "16d98a55a179047b",
       "oversized": false,
       "modules": [
         "governance"
@@ -1550,9 +1547,9 @@
     },
     {
       "path": "scripts/kit.py",
-      "bytes": 63850,
+      "bytes": 63865,
       "lines": 857,
-      "hash": "d2e33ccc51ed373f",
+      "hash": "32f79bd84799fee1",
       "oversized": false,
       "modules": [
         "state-controller"
@@ -1934,9 +1931,9 @@
     },
     {
       "path": "scripts/validate-kit.py",
-      "bytes": 696,
-      "lines": 13,
-      "hash": "fb56ab94f9607d88",
+      "bytes": 3121,
+      "lines": 58,
+      "hash": "5bdfc2eb2c80d9e6",
       "oversized": false,
       "modules": [
         "validation-and-tests"
@@ -2451,9 +2448,9 @@
     },
     {
       "path": "tests/test_guideline_snapshot.py",
-      "bytes": 14059,
-      "lines": 294,
-      "hash": "0c2b70c9a9ad2c31",
+      "bytes": 13919,
+      "lines": 292,
+      "hash": "2f15d2d44e78a8d1",
       "oversized": false,
       "modules": [
         "validation-and-tests"
@@ -2666,6 +2663,30 @@
         {
           "specifier": "test_conversion",
           "external": "test_conversion"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_threshold_consistency.py",
+      "bytes": 1983,
+      "lines": 48,
+      "hash": "ddf852ce545ba817",
+      "oversized": false,
+      "modules": [
+        "validation-and-tests"
+      ],
+      "imports": [
+        {
+          "specifier": "__future__",
+          "external": "__future__"
+        },
+        {
+          "specifier": "conftest",
+          "external": "conftest"
+        },
+        {
+          "specifier": "re",
+          "external": "re"
         }
       ]
     },

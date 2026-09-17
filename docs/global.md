@@ -317,3 +317,11 @@ Flag any platform-dependent characters found in the Figma source back to the des
 - Release the exact accepted generated directory — do not rewrite it while copying.
 - Include the run record, guideline snapshot, final QA summary, and checksums.
 - All files stored with correct naming convention per project delivery requirements.
+
+## Why HTML-008 is stated explicitly (provenance)
+
+The H1-as-image-banner rule exists because production deliveries are genuinely
+inconsistent: some wrap the banner `<img>` in a real `<h1>`, others ship a
+heading-shaped `<div>` with no `<h1>` on the page at all. Both patterns appear in
+the same MediChannel sibling series. The shipped rule is
+`guidelines/global/coding/html.md` (HTML-008).

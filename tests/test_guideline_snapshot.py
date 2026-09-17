@@ -166,8 +166,6 @@ def test_medichannel_delivers_xhtml_rules_and_the_qa_guide_to_qa_roles(project_f
         "guidelines/medichannel/general-rules.md",
         "guidelines/medichannel/coding/xhtml-syntax.md",
         "guidelines/medichannel/coding/deviations.md",
-        "guidelines/medichannel/coding/design-token-consistency.md",
-        "guidelines/medichannel/coding/xhtml-vs-html5-reference.md",
     }
     assert xhtml <= set(builder) and xhtml <= set(ui)
     # The QA workflow file goes to reviewers, not to the builder.

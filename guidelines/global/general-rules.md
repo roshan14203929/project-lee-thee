@@ -17,4 +17,4 @@ and set the platform before building.
 | Font-size unit | `px` | `rem` |
 | QA workflow | `guidelines/medichannel/qa/` (+ `guidelines/global/qa/`) | `guidelines/global/qa/` only |
 
-Do not cross-apply one channel's `coding/` or `qa/` rules to the other.
+- GEN-001 Never cross-apply one channel's `coding/` or `qa/` rules to the other.

@@ -76,4 +76,4 @@ Never add model API calls, model API keys, a database, or a queue.
   hierarchy, form labels, and useful alternative text.
 - Do not add frameworks, remote fonts, trackers, or runtime dependencies unless
   explicitly requested.
-- keep the gudilines/text-based outputs concise, omit unnecessary explanation, grammer can be sacrificed for brevity without losing the intent.
+- Keep guideline and text-based outputs concise. Omit unnecessary explanation; grammar can be sacrificed for brevity, never intent.

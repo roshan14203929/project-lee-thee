@@ -1,29 +1,22 @@
 # Technical QA defaults
 
-- Validate document structure, local asset references, console output, local
-  request failures, viewport overflow, CSS loading, and JavaScript errors.
-- Reject unresolved placeholders, missing files, remote runtime dependencies,
-  and paths that escape the generated directory.
+Procedures only. Report findings by ID; do not restate rules.
+
+- Validate document structure, local asset references, console output, local request failures, viewport overflow, CSS loading, JavaScript errors.
+- Reject unresolved placeholders, missing files, remote runtime dependencies, paths escaping the generated directory.
 - Verify the page works from the included local server without the agent host.
-- Keep reports machine-readable and include exact evidence.
-- Scan for CSS selectors that match nothing in the HTML (orphaned rules) after
-  any element removal or icon consolidation.
-- Confirm every file in `images/` is referenced by `src` somewhere in the HTML;
-  flag unreferenced files.
-- Confirm `src` filename case matches the file on disk exactly.
-- Confirm delivered `base.css`/`page.css` (both channels) and M3's `index.html`
-  contain zero comments — flag any surviving comment, including a leftover
-  component-vocabulary block, as a defect. For MediChannel, only check the
-  editable-area content for stray comments; the template outside it retains
-  its own comments (including the editable-area markers) unchanged.
+- Keep reports machine-readable with exact evidence.
+- Scan for orphaned selectors after element removal or icon consolidation.
+- Cross-check `images/` against `src` usage, and `src` filename case against disk.
+- Confirm delivered CSS carries zero comments, including a leftover component-vocabulary block. M3 `index.html` is in scope; on MediChannel check only the editable-area content — the template keeps its own comments and markers.
+- In scope: CSS-022, CSS-023, CSS-024, CSS-026, CSS-027, AM-009, AM-010, FID-013.
 
-## General Rendering
+## General rendering
 
-- Page renders without console errors in target browsers. Browser-target
-  matrix is channel-specific — see `<channel>/general-rules.md`.
-- Page displays correctly at 1280px (desktop) and 375px (mobile).
-- No unwanted horizontal scroll at any viewport width.
+- No console errors on the channel's browser targets -> MC-017 / M3-003.
+- Renders correctly at 1280px and 375px. No unwanted horizontal scroll at any width.
+- Validation clean before delivery -> MC-018.
 
 ## Delivery
 
-- All files stored with correct naming convention per project delivery requirements.
+- Files named per the project's delivery requirements.

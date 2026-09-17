@@ -4,10 +4,10 @@ All four checks are mandatory and independently blocking.
 
 ## Content
 
-Mechanically run `verify-output.py` with the source content inventory, then
-have the content reviewer compare DOM/rendered content to Figma. Verify exact
-copy, labels, links, buttons, forms, numbers, legal text, image purpose,
-metadata, omissions, duplication, truncation, and fabricated content.
+Mechanically run `verify-output.py` with the source content inventory, then have
+the content reviewer compare DOM/rendered content to Figma. The checklist is
+`guidelines/global/qa/content-qa.md`, delivered to that reviewer — do not restate
+it in the handoff.
 
 ## UI
 
@@ -54,16 +54,15 @@ dimensions and re-measure.
 
 ## Accessibility
 
-Check landmarks, single `h1`, heading order, names, labels, alt text, keyboard
-operation, focus order and visibility, reduced motion, hidden content, and
-native semantics. Record user impact and selector evidence.
+Checklist: `guidelines/global/qa/accessibility-qa.md`, delivered to the
+reviewer. Findings must record user impact, selector evidence, and the violated
+rule ID.
 
 ## Technical
 
-Run static verification and browser diagnostics. Check broken local assets,
-unsafe paths, console errors, failed requests, horizontal overflow, invalid
-document structure, remote runtime dependencies, and placeholders. Confirm the
-page works through `scripts/serve.py` without the agent host.
+Run static verification and browser diagnostics, and confirm the page works
+through `scripts/serve.py` without the agent host. Checklist:
+`guidelines/global/qa/technical-qa.md`, delivered to the reviewer.
 
 ## QA recording
 

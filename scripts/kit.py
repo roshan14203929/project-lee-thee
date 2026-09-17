@@ -51,7 +51,7 @@ def prj(a): return PROJECTS/safe(a,'project identifier')
 def page(a,b): return prj(a)/'pages'/safe(b,'page identifier')
 def src(a,b,c): return page(a,b)/'sources'/sid(c)
 def run(a,b,c): return page(a,b)/'runs'/rid(c)
-def read(f): return json.loads(Path(f).read_text(encoding='utf8'))
+def read(f): return json.loads(Path(f).read_text(encoding='utf-8-sig'))
 def write(f,v):
  f=Path(f);f.parent.mkdir(parents=True,exist_ok=True); t=f.with_name(f.name+'.tmp');t.write_text(dump(v)+'\n',encoding='utf8');replace_atomic(t,f)
 def update(f,fn):
@@ -131,7 +131,7 @@ def active(**kw):
  """Record the active run so the SubagentStop audit hook can attribute events."""
  try:
   if kw.get('status') in TERMINAL:ACTIVE.unlink(missing_ok=True);return
-  cur=json.loads(ACTIVE.read_text(encoding='utf8')) if ACTIVE.exists() else {}
+  cur=json.loads(ACTIVE.read_text(encoding='utf-8-sig')) if ACTIVE.exists() else {}
   if not isinstance(cur,dict):cur={}
   ACTIVE.parent.mkdir(parents=True,exist_ok=True);t=ACTIVE.with_suffix('.json.tmp')
   t.write_text(dump({**cur,**{k:v for k,v in kw.items() if v is not None},'updatedAt':now()})+'\n',encoding='utf8');replace_atomic(t,ACTIVE)
@@ -569,7 +569,7 @@ def snapshot(a,b,role=None):
  if role is not None and not plat:body+=['> **Warning:** no platform is set for this project, so no channel coding','> standards are included below. The rules named in the Channels section of','> `guidelines/global/general-rules.md` are NOT part of this snapshot. Set the','> platform with `kit.py set-platform <project> --platform <name>` and re-read.','']
  srcs=[]
  for f in gfiles(a,b,role):
-  x=f.read_text(encoding='utf8');rel=f.relative_to(ROOT).as_posix()
+  x=f.read_text(encoding='utf-8-sig');rel=f.relative_to(ROOT).as_posix()
   srcs.append({'path':rel,'sha256':hashlib.sha256(x.encode()).hexdigest()})
   body+=[f'## {rel}','',x.strip(),'']
  if not srcs:bad('No guideline sources resolved; a run requires at least guidelines/global/general-rules.md.')

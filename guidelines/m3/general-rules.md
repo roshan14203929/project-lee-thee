@@ -4,12 +4,12 @@
 
 ## Delivery shape
 
-Flat output: `index.html`, `base.css`, `page.css`, `images/`. No template editable-area constraint — the whole page is in scope.
+- M3-001 Flat output per `builder.md`. No template editable-area constraint — the whole page is in scope.
 
 ## QA scope
 
-No client-managed-zone exclusion — QA covers the full page, unlike MediChannel's header/breadcrumb/footer carve-out.
+- M3-002 No client-managed-zone exclusion: QA covers the full page. MediChannel's MC-015 carve-out does not apply.
 
 ## Browser Targets (General Rendering)
 
-Win11 Edge, Win11 Chrome, Win11 Firefox, macOS Safari, and mobile simulation (iPhone/Safari).
+- M3-003 Browser targets: Win11 Edge, Win11 Chrome, Win11 Firefox, macOS Safari, and mobile simulation (iPhone/Safari).
