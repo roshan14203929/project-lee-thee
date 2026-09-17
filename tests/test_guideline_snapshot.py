@@ -103,6 +103,7 @@ def test_role_scoped_read_returns_the_role_file_and_the_platform_bundle(project_
     # omitting them would leave the agent unable to reach the delta at all.
     assert sections(builder) == [
         "guidelines/global/general-rules.md",
+        "guidelines/global/fidelity.md",
         "guidelines/builder.md",
         "guidelines/global/coding/assets-media.md",
         "guidelines/global/coding/base-css-template.md",
@@ -113,19 +114,26 @@ def test_role_scoped_read_returns_the_role_file_and_the_platform_bundle(project_
     ]
     assert sections(technical) == [
         "guidelines/global/general-rules.md",
+        "guidelines/global/fidelity.md",
         "guidelines/global/qa/technical-qa.md",
         "guidelines/global/coding/assets-media.md",
-        "guidelines/global/coding/base-css-template.md",
         "guidelines/global/coding/css.md",
         "guidelines/global/coding/html.md",
         "guidelines/m3/general-rules.md",
         "guidelines/m3/coding/html5-delta.md",
         "guidelines/m3/qa/qa-findings-reference.md",
     ]
+    # base-css-template.md is non-normative sample CSS carrying comment banners,
+    # while technical-qa.md requires delivered CSS to contain zero comments.
+    # Shipping it to a reviewer manufactures false findings.
+    assert "guidelines/global/coding/base-css-template.md" not in sections(technical)
     # Global, project, and page layers are present for every role.
     for scoped in (builder, technical):
         assert "Use the brand teal" in scoped
         assert len(scoped) < len(everything)
+        # Run, gate, and release rules belong to the orchestrator. No role read
+        # delivers them, so no reviewer spends tokens on them.
+        assert "## guidelines/global/orchestrator.md" not in scoped
     # The unscoped read stays the complete archival record.
     for path in (
         "guidelines/builder.md",
@@ -134,6 +142,8 @@ def test_role_scoped_read_returns_the_role_file_and_the_platform_bundle(project_
         "guidelines/global/qa/content-qa.md",
         "guidelines/global/qa/accessibility-qa.md",
         "guidelines/global/qa/technical-qa.md",
+        "guidelines/global/fidelity.md",
+        "guidelines/global/orchestrator.md",
     ):
         assert path in everything
 
@@ -181,7 +191,18 @@ def test_a_run_cannot_start_without_a_platform(project_factory) -> None:
     # A role-scoped read still works, but says plainly what is missing.
     scoped = run_kit("guidelines", project_id, page_id, "--role", "builder").stdout
     assert "no platform is set" in scoped
-    assert sections(scoped) == ["guidelines/global/general-rules.md", "guidelines/builder.md"]
+    # The channel-agnostic baseline still arrives; only the channel delta is
+    # missing. Gating the baseline behind platform selection left a builder with
+    # no coding standards at all.
+    assert sections(scoped) == [
+        "guidelines/global/general-rules.md",
+        "guidelines/global/fidelity.md",
+        "guidelines/builder.md",
+        "guidelines/global/coding/assets-media.md",
+        "guidelines/global/coding/base-css-template.md",
+        "guidelines/global/coding/css.md",
+        "guidelines/global/coding/html.md",
+    ]
 
 
 def test_unknown_role_is_rejected(project_factory) -> None:
@@ -194,6 +215,42 @@ def test_unknown_role_is_rejected(project_factory) -> None:
 
     assert result.returncode != 0
     assert "Unknown role" in result.stderr
+
+
+def test_bare_role_flag_is_rejected(project_factory) -> None:
+    project_id, page_id = "guideline-bare-role-test", "home"
+    project_factory(project_id)
+    kit("init-project", project_id, "Bare role test", "--platform", "html5")
+    kit("init-page", project_id, page_id, "Home")
+
+    # A valueless --role used to resolve to role=None, silently returning the
+    # unscoped both-channel snapshot headed "Role scope: all." A builder that
+    # mistyped the flag would receive XHTML rules inside an HTML5 build.
+    bare = run_kit("guidelines", project_id, page_id, "--role", check=False)
+    assert bare.returncode != 0
+    assert "--role requires a value" in bare.stderr
+    assert "Role scope: all" not in bare.stdout
+
+    repeated = run_kit(
+        "guidelines", project_id, page_id, "--role", "builder", "--role", "ui", check=False
+    )
+    assert repeated.returncode != 0
+    assert "a single --role" in repeated.stderr
+
+
+def test_every_global_coding_file_reaches_at_least_one_role(project_factory) -> None:
+    project_id, page_id = "guideline-coding-coverage-test", "home"
+    project_factory(project_id)
+    kit("init-project", project_id, "Coding coverage test", "--platform", "html5")
+    kit("init-page", project_id, page_id, "Home")
+
+    # CODING_FOR_ROLE is a filename allowlist, so a renamed or newly added
+    # baseline file would be delivered to nobody with no error raised.
+    seen: set[str] = set()
+    for role in ("builder", "extractor", "ui", "content", "accessibility", "technical"):
+        seen |= set(sections(run_kit("guidelines", project_id, page_id, "--role", role).stdout))
+    for path in (ROOT / "guidelines" / "global" / "coding").glob("*.md"):
+        assert path.relative_to(ROOT).as_posix() in seen
 
 
 def test_run_snapshot_stays_unscoped(project_factory) -> None:

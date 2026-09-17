@@ -30,11 +30,23 @@ Never implement a border on `.cst-page`, even if Figma's page-container node sho
 
 ## Character references
 
-Platform-dependent characters (①, ㈱, Ⅲ, etc.) — not just the Roman-numeral/full-width-minus set in `global/coding/assets-media.md` — must use character entity or numeric references, per the formal client spec. Prefer numeric refs over named ones in XML mode: `&nbsp;` → `&#160;`, `&copy;` → `&#169;`, `&mdash;` → `&#8212;`.
+All platform-dependent characters must use numeric or named entity references per the formal client spec. The table below covers both general MediChannel rules and M3→MediChannel migration conversions.
 
-Fullwidth comparison symbols (`＜`, `＞`) → halfwidth entity-escaped form (`&lt;`, `&gt;`).
+| Source | MediChannel target | Rule |
+|---|---|---|
+| `III` (plain ASCII Roman numerals) | `&#8546;` (Ⅲ) | Convert ASCII Roman numerals to the proper Unicode Roman numeral entity |
+| `(1) (2) (3)` parenthesized numbers | `&#9312;`–`&#9317;` (①–⑥) | Convert to circled-digit entities |
+| `＜` `＞` (fullwidth symbols) | `&lt;` `&gt;` | Convert fullwidth comparison symbols to halfwidth entity-escaped equivalents |
+| `&` unescaped in `href`/query strings | `&amp;` | Always HTML-escape ampersands in links — MediChannel only; M3 does not require this |
+| `—` `&nbsp;` fullwidth `〜` | `&#8213;` `&#160;` `&#65374;` | No conversion needed — carry over as-is |
+| `―` (horizontal bar) | `&#8213;` | Use entity in both channels |
+| `<sup>` / `<sub>` tags | unchanged | Copy footnote/subscript markers exactly — no conversion |
+| `®` registered symbol | `&reg;` | Use `&reg;` in MediChannel |
+| `&nbsp;` | `&#160;` | Prefer numeric ref over named entity in XML mode |
+| `&copy;` | `&#169;` | Prefer numeric ref over named entity in XML mode |
+| `&mdash;` | `&#8212;` | Prefer numeric ref over named entity in XML mode |
 
-M3→MediChannel migration only: M3 flattens circled digits to plain `(1)(2)(3)` (see `m3/coding/*`); when porting that content here, restore as numeric refs `&#9312;`–`&#9317;` (①–③) instead, since MediChannel entity-encodes platform-dependent glyphs rather than stripping them. Do not introduce circled digits in MediChannel-original content.
+Flag any platform-dependent characters found in the Figma source back to the design team.
 
 ## CSS naming
 

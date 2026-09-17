@@ -84,18 +84,40 @@ nested tree as a separate, additional artifact — see
 --article-path`) are only required at materialization time, not at build time.
 
 `guidelines` resolves the global, channel, project, and page layers in
-precedence order. With `--role` it includes that role's own file (`builder.md`,
-`extractor.md`, or `guidelines/global/qa/<role>-qa.md`) **plus the
-channel-agnostic baseline in `guidelines/global/coding/` and the project's
-channel bundle** (`guidelines/medichannel/` or `guidelines/m3/`), which is how
-every agent should read its guidelines. `new-run` still writes the unscoped
-snapshot to `effective-guidelines.md`, so release evidence stays complete.
+precedence order. `--role` is mandatory for agent reads and must carry a value:
+a bare or repeated `--role` is rejected, because it used to fall back silently
+to the unscoped both-channel snapshot.
+
+A role-scoped read delivers, in precedence order:
+
+1. `guidelines/global/general-rules.md` — precedence and the channel table.
+2. `guidelines/global/fidelity.md` — the shared content/UI/quality bar, for the
+   builder and the four QA roles (not the extractor).
+3. The role's own file: `builder.md`, `extractor.md`, or
+   `guidelines/global/qa/<role>-qa.md`.
+4. **Only the `guidelines/global/coding/*.md` files that role can act on** — see
+   `CODING_FOR_ROLE` in `scripts/kit.py`. `base-css-template.md` is builder-only:
+   it is non-normative sample CSS carrying comment banners, and `technical-qa.md`
+   requires delivered CSS to contain zero comments, so shipping it to a reviewer
+   manufactures false findings.
+5. The project's channel bundle (`guidelines/medichannel/` or `guidelines/m3/`).
+6. Project, then page guidelines.
+
+`guidelines/global/orchestrator.md` (run immutability, QA gate thresholds,
+candidate acceptance, release) reaches **no role** — those rules belong to the
+primary orchestrator, which learns them from this skill while `kit.py` enforces
+them. It is still archived in the unscoped snapshot.
+
+`new-run` still writes the unscoped snapshot to `effective-guidelines.md`, so
+release evidence stays complete.
 
 Platform is a second axis, orthogonal to role. MediChannel (XHTML 1.0 Strict)
 delivers `guidelines/medichannel/general-rules.md` and every file under
 `guidelines/medichannel/coding/` to every role, plus every file under
 `guidelines/medichannel/qa/` to the four QA roles; HTML5 delivers
-`guidelines/m3/general-rules.md` and `guidelines/m3/coding/html5-delta.md`.
+`guidelines/m3/general-rules.md` and `guidelines/m3/coding/html5-delta.md`. The
+`guidelines/global/coding/` baseline is channel-agnostic and is delivered even
+when no platform is set, so a builder is never left with no coding standards.
 `new-run` fails until a platform is set, and a role-scoped read with no
 platform opens with an explicit warning rather than silently omitting the
 standards.

@@ -68,3 +68,16 @@ delta (e.g. font-size unit). The rules below are builder-specific and complement
 - **MediChannel exception:** use `px` for all font sizes; `rem` is unreliable
   because the client template controls the root font-size. See
   `guidelines/medichannel/coding/deviations.md`.
+
+## HTML and template delivery
+
+- Treat delivery templates as read-only. Build and iterate in a separate file,
+  then copy only finished code into the template's designated editable area.
+  Never run a formatter over an entire delivery template.
+- When available, rely on Prettier and `html-validate` for formatting, tag
+  closing, doctype, charset, attribute quoting, and void-element validation;
+  apply the platform coding-rules files to requirements those tools do not cover.
+- When XHTML is explicitly required, convert the completed HTML only as the
+  final local step and manually compare the result with the channel's
+  XHTML-versus-HTML5 reference. Do not introduce an external model API for the
+  conversion.

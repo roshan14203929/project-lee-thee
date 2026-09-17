@@ -108,20 +108,14 @@ repair-builder scopes repairs to the HTML section, not the CSS.
 
 Before returning, self-check against the loaded effective guidelines —
 mechanical/objective items only, fix any failure before returning:
-- **MediChannel:** walk the "## Checklist" table in
-  `guidelines/medichannel/coding/xhtml-syntax.md` (full XHTML 1.0 Strict
-  DOCTYPE incl. `<?xml ...?>`, lowercase tags, closed/self-closed elements,
-  quoted attributes, `&amp;`-escaping, no HTML5-only elements, `id` naming),
-  plus: platform-dependent characters entity/numeric-escaped per
-  `guidelines/medichannel/coding/deviations.md`. The editable-area markers
-  are the materializer's concern, not this candidate's — a flat candidate has
-  no markers.
-- **M3/HTML5:** confirm the two deltas in
-  `guidelines/m3/coding/html5-delta.md` (font sizes in `rem` not `px`, no
-  `box-shadow` on `.cst-page`), and that platform-risky characters (Roman
-  numerals, circled digits, fullwidth minus/wave dash) are replaced with
-  plain text per `guidelines/global/coding/assets-media.md` — the reverse of
-  the MediChannel rule above; do not cross-apply between platforms.
+- **MediChannel:** verify against `guidelines/medichannel/coding/xhtml-syntax.md`
+  and `guidelines/medichannel/coding/deviations.md`. Both are already in your
+  loaded guidelines — read them, do not check from memory. The editable-area
+  markers are the materializer's concern, not this candidate's; a flat
+  candidate has no markers.
+- **M3/HTML5:** verify against `guidelines/m3/coding/html5-delta.md` and the
+  character rules in `guidelines/global/coding/assets-media.md`. The character
+  handling is the reverse of MediChannel's; never cross-apply between platforms.
 
 Do not edit run state, QA, generated output, current output, or releases. Do not
 use frameworks, remote scripts, remote fonts, trackers, model APIs, or

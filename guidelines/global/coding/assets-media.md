@@ -40,12 +40,14 @@ This pattern recurs on most delivery pages. Document what's fixed vs. per-ticket
 
 Scan extracted Figma copy before writing HTML:
 
-| Character type | Problem | Default fix |
+| Character type | Problem | Fix (M3 / HTML5) |
 |---|---|---|
 | Roman numeral codepoints U+2160–U+216F (Ⅰ Ⅱ Ⅲ …) | Platform-risky | Replace with plain ASCII Latin (Ⅰ→I, Ⅱ→II) |
 | Full-width minus `－` (U+FF0D) / wave-dash `～` (U+FF5E) | Renders inconsistently | Encode as a numeric character reference (e.g. `&#65293;`) |
 
-Flag any such characters found in the Figma source itself back to the design team, in addition to fixing the HTML. MediChannel has a stricter, formally-mandated version of this rule — see `medichannel/coding/deviations.md`.
+**MediChannel overrides the Roman numeral rule** — do not strip to ASCII; convert to the proper numeric entity instead (e.g. `&#8546;` for Ⅲ). See the full conversion table in `medichannel/coding/deviations.md`.
+
+Flag any such characters found in the Figma source itself back to the design team.
 
 ## Asset Hygiene
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Python lifecycle controller for Layerlift project artifacts."""
 from __future__ import annotations
-import copy, hashlib, json, re, shutil, sys
+import copy, hashlib, json, re, shutil, sys, time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse, urlunparse, parse_qs
@@ -9,6 +9,16 @@ from urllib.parse import unquote, urlparse, urlunparse, parse_qs
 ROOT=Path(__file__).resolve().parent.parent; PROJECTS=ROOT/'projects'; ID=re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$'); TERMINAL={'COMPLETED','NEEDS_REVIEW','FAILED'}; QA=('content','ui','accessibility','technical'); PAYLOAD=['base.css','images','index.html','page.css']; TRANS={'CREATED':{'BUILDING','FAILED'},'BUILDING':{'VERIFYING','FAILED'},'VERIFYING':{'REFINING','COMPLETED','NEEDS_REVIEW','FAILED'},'REFINING':{'VERIFYING','NEEDS_REVIEW','FAILED'}}
 COMPACT_OUT={'inventory','spec-compact'}
 def bad(s): raise ValueError(s)
+def replace_atomic(t,f,tries=8):
+ # On Windows an antivirus scanner or the search indexer can briefly hold a
+ # freshly written .tmp, so the atomic replace intermittently raises
+ # PermissionError (WinError 5). The write itself already succeeded, so retry
+ # briefly rather than fail a run for a transient lock.
+ for i in range(tries):
+  try:return t.replace(f)
+  except PermissionError:
+   if i==tries-1:raise
+   time.sleep(0.05*(i+1))
 def now(): return datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')
 def dump(v,compact=False): return json.dumps(v,ensure_ascii=False,indent=None if compact else 2,separators=(',',':') if compact else None)
 def sha(v): return hashlib.sha256(dump(v,True).encode()).hexdigest()
@@ -43,7 +53,7 @@ def src(a,b,c): return page(a,b)/'sources'/sid(c)
 def run(a,b,c): return page(a,b)/'runs'/rid(c)
 def read(f): return json.loads(Path(f).read_text(encoding='utf8'))
 def write(f,v):
- f=Path(f);f.parent.mkdir(parents=True,exist_ok=True); t=f.with_name(f.name+'.tmp');t.write_text(dump(v)+'\n',encoding='utf8');t.replace(f)
+ f=Path(f);f.parent.mkdir(parents=True,exist_ok=True); t=f.with_name(f.name+'.tmp');t.write_text(dump(v)+'\n',encoding='utf8');replace_atomic(t,f)
 def update(f,fn):
  v=fn(copy.deepcopy(read(f)));write(f,v);return v
 def cp(a,b):
@@ -124,7 +134,7 @@ def active(**kw):
   cur=json.loads(ACTIVE.read_text(encoding='utf8')) if ACTIVE.exists() else {}
   if not isinstance(cur,dict):cur={}
   ACTIVE.parent.mkdir(parents=True,exist_ok=True);t=ACTIVE.with_suffix('.json.tmp')
-  t.write_text(dump({**cur,**{k:v for k,v in kw.items() if v is not None},'updatedAt':now()})+'\n',encoding='utf8');t.replace(ACTIVE)
+  t.write_text(dump({**cur,**{k:v for k,v in kw.items() if v is not None},'updatedAt':now()})+'\n',encoding='utf8');replace_atomic(t,ACTIVE)
  except Exception:pass
 def transition(a,b,c,status,extra={}):
  f=run(a,b,c)/'run.json'
@@ -187,7 +197,7 @@ def setplatform(a,o):
  def fn(x):
   delivery=require_delivery({**(x.get('delivery') or {}),**overrides}) if pf=='medichannel' else None
   return {**x,'platform':pf,'delivery':delivery,'updatedAt':now()}
- v=update(f,fn);return {'projectId':a,'platform':pf,'delivery':v.get('delivery'),'guidelines':sorted({p.relative_to(ROOT).as_posix() for p in platform_files('builder',pf)+platform_files('ui',pf)})}
+ v=update(f,fn);return {'projectId':a,'platform':pf,'delivery':v.get('delivery'),'guidelines':sorted({p.relative_to(ROOT).as_posix() for p in platform_files('builder',pf)+platform_files('ui',pf)+coding_files('builder')+coding_files('ui')})}
 def init_page(a,b,name,o=None):
  require_page_base=prj(a)
  if not (require_page_base/'project.json').exists(): bad(f'Project does not exist: {a}')
@@ -294,7 +304,7 @@ def budget(a,b,c):
  s=read(src(a,b,c)/'source.json');until=s.get('rateLimit',{}).get('blockedUntil');d=datetime.fromisoformat(until.replace('Z','+00:00')) if until else None;ok=not d or d<=datetime.now(timezone.utc);return {'projectId':a,'pageId':b,'sourceId':c,'allowed':ok,'blockedUntil':None if ok else until,'retryAfterSeconds':0 if ok else max(1,int((d-datetime.now(timezone.utc)).total_seconds()+.999))}
 INVFIELDS=('id','kind','text','required','nodeId','sectionId','variant')
 def wcompact(f,v):
- f=Path(f);t=f.with_name(f.name+'.tmp');t.write_text(dump(v,True)+'\n',encoding='utf8');t.replace(f)
+ f=Path(f);t=f.with_name(f.name+'.tmp');t.write_text(dump(v,True)+'\n',encoding='utf8');replace_atomic(t,f)
 def styletable(v):
  items=v.get('items')
  if not isinstance(items,list) or not items:return v
@@ -467,7 +477,13 @@ def ready(a,b,c):
   if not ref or Path(ref).name not in png:bad(f"Source variant {v['label']} has no matching PNG reference export.")
  norm=compact(a,b,c)
  t=now();update(f,lambda x:{**x,'status':'READY','completedAt':t,'error':None,'referenceState':x['referenceState'] if x.get('extractionMode')=='INCREMENTAL' else {z['label']:'REFRESHED' for z in x['figma']['variants']}});update(page(a,b)/'page.json',lambda x:{**x,'status':'SOURCE_READY','currentSourceId':c,'updatedAt':t});return {'projectId':a,'pageId':b,'sourceId':c,'status':'READY','normalized':norm['normalized']}
-GUIDE=ROOT/'guidelines'
+GUIDE=ROOT/'guidelines';GLOBAL=GUIDE/'global'
+# Cross-role global layer. general-rules.md is always first; fidelity.md is the
+# shared content/UI/quality bar, needed by the builder and the reviewers but not
+# by the extractor. global/orchestrator.md is deliberately in neither map: run,
+# gate, and release rules belong to the primary orchestrator, so no role read
+# delivers them (the unscoped read still archives them for release evidence).
+ROLE_GLOBAL={'builder':('fidelity.md',),'extractor':(),'ui':('fidelity.md',),'content':('fidelity.md',),'accessibility':('fidelity.md',),'technical':('fidelity.md',)}
 ROLE_FILES={'builder':GUIDE/'builder.md','extractor':GUIDE/'extractor.md','ui':GUIDE/'global'/'qa'/'ui-qa.md','content':GUIDE/'global'/'qa'/'content-qa.md','accessibility':GUIDE/'global'/'qa'/'accessibility-qa.md','technical':GUIDE/'global'/'qa'/'technical-qa.md'}
 # Platform coding standards are a second axis, orthogonal to role. MediChannel
 # (XHTML 1.0 Strict) and HTML5 are mutually exclusive: building under the wrong
@@ -501,31 +517,49 @@ def payload_spec(a,article_path,conversion=False):
  return {'kind':'jcr','articlePath':article_path,**delivery}
 def is_conversion_run(s):
  return (s.get('convertedFrom') or {}).get('direction')=='m3-to-medichannel'
+# Which guidelines/global/coding/*.md each role can act on. base-css-template.md
+# is builder-only: it is non-normative sample CSS full of comment banners, while
+# global/qa/technical-qa.md requires delivered CSS to carry zero comments, so
+# shipping it to reviewers manufactures false findings.
+CODING_FOR_ROLE={
+ 'builder':      {'assets-media.md','base-css-template.md','css.md','html.md'},
+ 'extractor':    {'assets-media.md'},
+ 'ui':           {'assets-media.md','css.md'},
+ 'content':      {'assets-media.md'},
+ 'accessibility':{'assets-media.md','html.md'},
+ 'technical':    {'assets-media.md','css.md','html.md'},
+}
+def coding_files(role):
+ sel=CODING_FOR_ROLE.get(role) or set()
+ return sorted((p for p in (GLOBAL/'coding').glob('*.md') if p.name in sel),key=relkey)
 def platform_files(role,plat):
  if not plat or role is None:return []
  d=GUIDE/PLATFORM_DIR[plat]
- out=sorted((GUIDE/'global'/'coding').glob('*.md'),key=relkey)
+ out=[]
  gr=d/'general-rules.md'
  if gr.exists():out.append(gr)
  out+=sorted((d/'coding').glob('*.md'),key=relkey)
  if role in QAROLES:out+=sorted((d/'qa').glob('*.md'),key=relkey)
  return out
 def gfiles(a,b,role=None):
- gr=GUIDE/'global'/'general-rules.md'
+ gr=GLOBAL/'general-rules.md'
  out=[gr] if gr.exists() else []
  if role is None:
   out+=sorted((p for p in GUIDE.rglob('*.md') if p.is_file() and p!=gr),key=relkey)
  else:
+  out+=[p for p in (GLOBAL/n for n in ROLE_GLOBAL[role]) if p.exists()]
   rf=ROLE_FILES[role]
   if rf.exists():out.append(rf)
+  out+=coding_files(role)
   out+=platform_files(role,platform_of(a))
  for d in (prj(a)/'guidelines',page(a,b)/'guidelines'):
   if d.is_dir():out+=sorted(x for x in d.glob('*.md') if x.is_file())
  return out
 def guidelines(a,b,o):
- role=o.get('role')
- if role is not None and role is not True and role not in ROLE_FILES:bad(f"Unknown role: {role}. Use one of: {', '.join(sorted(ROLE_FILES))}.")
- role=role if role in ROLE_FILES else None;prev=o.get('prev-hash')
+ role=o.get('role');prev=o.get('prev-hash')
+ if role is True:bad(f"guidelines --role requires a value. Use one of: {', '.join(sorted(ROLE_FILES))}.")
+ if isinstance(role,list):bad('guidelines accepts a single --role.')
+ if role is not None and role not in ROLE_FILES:bad(f"Unknown role: {role}. Use one of: {', '.join(sorted(ROLE_FILES))}.")
  g,_,h=snapshot(a,b,role)
  if prev and prev==h:cp=gcache(a,role,h);return f"GUIDELINE_CACHE_HIT\nhash: {h}\npath: {str(cp)}"
  return g
@@ -540,7 +574,12 @@ def snapshot(a,b,role=None):
   body+=[f'## {rel}','',x.strip(),'']
  if not srcs:bad('No guideline sources resolved; a run requires at least guidelines/global/general-rules.md.')
  g='\n'.join(body)+'\n';h=hashlib.sha256(g.encode()).hexdigest();cp=gcache(a,role,h)
- if not cp.exists():cp.write_text(g,encoding='utf8')
+ if not cp.exists():
+  cp.write_text(g,encoding='utf8')
+  # One live snapshot per role scope: a stale sibling can only ever be wrong
+  # content, and nothing resolves it except a --prev-hash that no longer matches.
+  for old in cp.parent.glob(f"{role or 'all'}-*.md"):
+   if old!=cp:old.unlink()
  return g,srcs,h
 def newrun(a,b,o):
  d=require_page(a,b);p=read(d/'page.json');c=o.get('source') or p.get('currentSourceId')

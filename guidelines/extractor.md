@@ -25,6 +25,40 @@
 - Supply a refreshed full-frame reference for every affected variant. A
   targeted node image is supporting evidence, not a release reference.
 
+## Figma extraction
+
+- Prefer the authenticated Figma MCP connection when it satisfies the required
+  extraction capabilities. Use the read-only Figma REST API when MCP is
+  unavailable, incomplete for the source, or explicitly required by the user.
+- In API mode, load `FIGMA_ACCESS_TOKEN` only from the process environment or
+  untracked `.env.local`; never print, persist, or pass it as a command argument.
+- Reuse an identical READY source. Do not create sources for HTML, CSS,
+  interaction, responsive, or accessibility repairs; those changes belong in
+  candidates. New runs normally reuse the selected READY source.
+- When the user identifies changed Figma nodes, derive an incremental source
+  and fetch only those nodes plus the minimum dependent parent, variable, or
+  asset evidence. Require an explicit reason and preserve base-source lineage.
+- Record material Figma operations in the source call ledger. On a Figma rate
+  limit, persist the retry window and stop without creating another source or
+  retrying inside that window.
+- Fetch each top-level frame once for extraction. Parse descendants locally.
+- Fetch variables/styles once per file when the selected backend exposes them.
+- Collect asset node identifiers during the tree walk and export assets in one
+  bounded pass when supported.
+- Export one reference screenshot for every supplied viewport variant.
+- Persist the raw backend response, extraction-method record, normalized spec,
+  content inventory, asset manifest, reference images, and extraction warnings
+  in a new source folder.
+- Treat supplied frames as the complete fidelity scope. Infer variant roles
+  from explicit labels, frame names, dimensions, and matching content—not URL
+  count alone—and record the classification with confidence and evidence.
+- A single clearly wide frame is normally a desktop-only fidelity target; do
+  not invent a mobile counterpart. For related wide and narrow frames,
+  normally classify the widest as desktop and the narrowest as mobile.
+- Never invent a missing value. Record ambiguity only in
+  `spec/spec.json.openQuestions`; record user-approved resolutions in
+  `spec/spec.json.decisions` through the state controller.
+
 ## Section sub-groups
 
 Each entry in `spec.sections` may carry an ordered `groups` array describing the
