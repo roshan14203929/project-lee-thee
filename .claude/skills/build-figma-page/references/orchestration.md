@@ -61,7 +61,9 @@ Order:
 
 Keep items 1–5 textually identical across successive runs on the same page so
 the cached prefix carries over. Never put a run ID, timestamp, or path before
-the stable block.
+the stable block. Note that any guideline edit re-keys every role's snapshot
+hash, so the first read per role afterwards is a full cache miss and every
+stored `--prev-hash` is dead; that is expected, not a fault.
 
 6. Invoke `release_verifier` / `release-verifier` after the summary passes and
    record its verdict with `release-check`.

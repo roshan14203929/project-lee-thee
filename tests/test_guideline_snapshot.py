@@ -49,8 +49,8 @@ def test_new_run_records_a_real_guideline_snapshot(project_factory) -> None:
     assert recorded["sha256"] == hashlib.sha256(snapshot.encode()).hexdigest()
 
     paths = [entry["path"] for entry in recorded["sources"]]
-    assert paths[0] == "guidelines/global.md"
-    assert "guidelines/base/builder.md" in paths
+    assert paths[0] == "guidelines/global/general-rules.md"
+    assert "guidelines/builder.md" in paths
     assert paths[-2:] == [
         f"projects/{project_id}/guidelines/brand.md",
         f"projects/{project_id}/pages/{page_id}/guidelines/scope.md",
@@ -59,7 +59,7 @@ def test_new_run_records_a_real_guideline_snapshot(project_factory) -> None:
 
     # Precedence order must survive into the rendered document.
     assert snapshot.index("Use the brand teal") < snapshot.index("Desktop only")
-    assert snapshot.index("guidelines/global.md") < snapshot.index("Use the brand teal")
+    assert snapshot.index("guidelines/global/general-rules.md") < snapshot.index("Use the brand teal")
 
 
 def test_snapshot_hashes_track_guideline_edits(project_factory) -> None:
@@ -97,48 +97,82 @@ def test_role_scoped_read_returns_the_role_file_and_the_platform_bundle(project_
     technical = run_kit("guidelines", project_id, page_id, "--role", "technical").stdout
     everything = run_kit("guidelines", project_id, page_id).stdout
 
-    # A role gets its own file plus the platform's coding standards, never
-    # another role's file. global.md names the platform rules by path, so
-    # omitting them would leave the agent unable to reach them at all.
+    # A role gets its own file plus the channel-agnostic baseline and the
+    # channel's own delta bundle, never another role's file or another
+    # channel's delta. general-rules.md names the channel folders by path, so
+    # omitting them would leave the agent unable to reach the delta at all.
     assert sections(builder) == [
-        "guidelines/global.md",
-        "guidelines/base/builder.md",
-        "guidelines/base/html-coding-rules.md",
+        "guidelines/global/general-rules.md",
+        "guidelines/global/fidelity.md",
+        "guidelines/builder.md",
+        "guidelines/global/coding/assets-media.md",
+        "guidelines/global/coding/base-css-template.md",
+        "guidelines/global/coding/css.md",
+        "guidelines/global/coding/html.md",
+        "guidelines/m3/general-rules.md",
+        "guidelines/m3/coding/html5-delta.md",
     ]
     assert sections(technical) == [
-        "guidelines/global.md",
-        "guidelines/base/html-coding-rules.md",
-        "guidelines/base/technical-qa.md",
+        "guidelines/global/general-rules.md",
+        "guidelines/global/fidelity.md",
+        "guidelines/global/qa/technical-qa.md",
+        "guidelines/global/coding/assets-media.md",
+        "guidelines/global/coding/css.md",
+        "guidelines/global/coding/html.md",
+        "guidelines/m3/general-rules.md",
+        "guidelines/m3/coding/html5-delta.md",
+        "guidelines/m3/qa/qa-findings-reference.md",
     ]
+    # base-css-template.md is non-normative sample CSS carrying comment banners,
+    # while technical-qa.md requires delivered CSS to contain zero comments.
+    # Shipping it to a reviewer manufactures false findings.
+    assert "guidelines/global/coding/base-css-template.md" not in sections(technical)
     # Global, project, and page layers are present for every role.
     for scoped in (builder, technical):
         assert "Use the brand teal" in scoped
         assert len(scoped) < len(everything)
+        # Run, gate, and release rules belong to the orchestrator. No role read
+        # delivers them, so no reviewer spends tokens on them.
+        assert "## guidelines/global/orchestrator.md" not in scoped
     # The unscoped read stays the complete archival record.
-    for name in ("builder", "technical-qa", "ui-qa", "content-qa", "accessibility-qa", "extractor"):
-        assert f"guidelines/base/{name}.md" in everything
+    for path in (
+        "guidelines/builder.md",
+        "guidelines/extractor.md",
+        "guidelines/global/qa/ui-qa.md",
+        "guidelines/global/qa/content-qa.md",
+        "guidelines/global/qa/accessibility-qa.md",
+        "guidelines/global/qa/technical-qa.md",
+        "guidelines/global/fidelity.md",
+        "guidelines/global/orchestrator.md",
+    ):
+        assert path in everything
 
 
 def test_medichannel_delivers_xhtml_rules_and_the_qa_guide_to_qa_roles(project_factory) -> None:
     project_id, page_id = "guideline-platform-test", "home"
     project_factory(project_id)
-    kit("init-project", project_id, "Platform test", "--platform", "medichannel")
-    kit("init-page", project_id, page_id, "Home")
+    kit(
+        "init-project", project_id, "Platform test", "--platform", "medichannel",
+        "--content-root", "Test/Region/048-MediChannel/ja/jp",
+        "--dam-root", "test-region",
+        "--css-root", "test-region/css",
+    )
+    kit("init-page", project_id, page_id, "Home", "--article-path", "medical/product/example-contents/example_article01")
 
     builder = sections(run_kit("guidelines", project_id, page_id, "--role", "builder").stdout)
     ui = sections(run_kit("guidelines", project_id, page_id, "--role", "ui").stdout)
 
     xhtml = {
-        "guidelines/base/xhtml-coding-rules.md",
-        "guidelines/base/medichannel-delivery-standards.md",
-        "guidelines/base/xhtml-vs-html5-reference.md",
+        "guidelines/medichannel/general-rules.md",
+        "guidelines/medichannel/coding/xhtml-syntax.md",
+        "guidelines/medichannel/coding/deviations.md",
     }
     assert xhtml <= set(builder) and xhtml <= set(ui)
-    # The QA workflow guide goes to reviewers, not to the builder.
-    assert "guidelines/base/az-html-qa-guide.md" in ui
-    assert "guidelines/base/az-html-qa-guide.md" not in builder
-    # HTML5 rules must never leak into a MediChannel build.
-    assert "guidelines/base/html-coding-rules.md" not in builder
+    # The QA workflow file goes to reviewers, not to the builder.
+    assert "guidelines/medichannel/qa/coding-qa.md" in ui
+    assert "guidelines/medichannel/qa/coding-qa.md" not in builder
+    # HTML5's channel-specific delta must never leak into a MediChannel build.
+    assert "guidelines/m3/coding/html5-delta.md" not in builder
 
 
 def test_a_run_cannot_start_without_a_platform(project_factory) -> None:
@@ -155,7 +189,18 @@ def test_a_run_cannot_start_without_a_platform(project_factory) -> None:
     # A role-scoped read still works, but says plainly what is missing.
     scoped = run_kit("guidelines", project_id, page_id, "--role", "builder").stdout
     assert "no platform is set" in scoped
-    assert sections(scoped) == ["guidelines/global.md", "guidelines/base/builder.md"]
+    # The channel-agnostic baseline still arrives; only the channel delta is
+    # missing. Gating the baseline behind platform selection left a builder with
+    # no coding standards at all.
+    assert sections(scoped) == [
+        "guidelines/global/general-rules.md",
+        "guidelines/global/fidelity.md",
+        "guidelines/builder.md",
+        "guidelines/global/coding/assets-media.md",
+        "guidelines/global/coding/base-css-template.md",
+        "guidelines/global/coding/css.md",
+        "guidelines/global/coding/html.md",
+    ]
 
 
 def test_unknown_role_is_rejected(project_factory) -> None:
@@ -170,6 +215,42 @@ def test_unknown_role_is_rejected(project_factory) -> None:
     assert "Unknown role" in result.stderr
 
 
+def test_bare_role_flag_is_rejected(project_factory) -> None:
+    project_id, page_id = "guideline-bare-role-test", "home"
+    project_factory(project_id)
+    kit("init-project", project_id, "Bare role test", "--platform", "html5")
+    kit("init-page", project_id, page_id, "Home")
+
+    # A valueless --role used to resolve to role=None, silently returning the
+    # unscoped both-channel snapshot headed "Role scope: all." A builder that
+    # mistyped the flag would receive XHTML rules inside an HTML5 build.
+    bare = run_kit("guidelines", project_id, page_id, "--role", check=False)
+    assert bare.returncode != 0
+    assert "--role requires a value" in bare.stderr
+    assert "Role scope: all" not in bare.stdout
+
+    repeated = run_kit(
+        "guidelines", project_id, page_id, "--role", "builder", "--role", "ui", check=False
+    )
+    assert repeated.returncode != 0
+    assert "a single --role" in repeated.stderr
+
+
+def test_every_global_coding_file_reaches_at_least_one_role(project_factory) -> None:
+    project_id, page_id = "guideline-coding-coverage-test", "home"
+    project_factory(project_id)
+    kit("init-project", project_id, "Coding coverage test", "--platform", "html5")
+    kit("init-page", project_id, page_id, "Home")
+
+    # CODING_FOR_ROLE is a filename allowlist, so a renamed or newly added
+    # baseline file would be delivered to nobody with no error raised.
+    seen: set[str] = set()
+    for role in ("builder", "extractor", "ui", "content", "accessibility", "technical"):
+        seen |= set(sections(run_kit("guidelines", project_id, page_id, "--role", role).stdout))
+    for path in (ROOT / "guidelines" / "global" / "coding").glob("*.md"):
+        assert path.relative_to(ROOT).as_posix() in seen
+
+
 def test_run_snapshot_stays_unscoped(project_factory) -> None:
     project_id, page_id = "guideline-archival-test", "home"
     project_factory(project_id)
@@ -182,13 +263,15 @@ def test_run_snapshot_stays_unscoped(project_factory) -> None:
         (Path(str(run["root"])) / "run.json").read_text(encoding="utf-8")
     )["guidelineSnapshot"]["sources"]]
 
-    # A run records every role's and every platform's guidelines, so release
+    # A run records every role's and every channel's guidelines, so release
     # evidence stays complete regardless of which platform the project targets.
-    base = [p for p in paths if p.startswith("guidelines/base/")]
-    expected = sorted(
-        f"guidelines/base/{p.name}" for p in (ROOT / "guidelines" / "base").glob("*.md")
+    base = [p for p in paths if p.startswith("guidelines/")]
+    gr = "guidelines/global/general-rules.md"
+    rest = sorted(
+        p.relative_to(ROOT).as_posix() for p in (ROOT / "guidelines").rglob("*.md")
+        if p.relative_to(ROOT).as_posix() != gr
     )
-    assert base == expected
+    assert base == [gr] + rest
 
 
 def test_global_guidelines_are_always_first(project_factory) -> None:
@@ -203,6 +286,6 @@ def test_global_guidelines_are_always_first(project_factory) -> None:
         (Path(str(run["root"])) / "run.json").read_text(encoding="utf-8")
     )["guidelineSnapshot"]["sources"]]
 
-    assert paths[0] == "guidelines/global.md"
-    assert paths[1:] == sorted(paths[1:])  # base files resolve deterministically
+    assert paths[0] == "guidelines/global/general-rules.md"
+    assert paths[1:] == sorted(paths[1:])  # channel files resolve deterministically
     assert (ROOT / paths[0]).exists()

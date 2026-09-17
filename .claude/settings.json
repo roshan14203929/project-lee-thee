@@ -3,9 +3,6 @@
     "allow": [
       "Bash(python *)",
       "Bash(python3 *)"
-    ],
-    "additionalDirectories": [
-      "/Users/roshanmoolya/Documents/mediChannel/projects/fsn-hes/pages/home/runs/run-002/candidates/candidate-001/assets"
     ]
   },
   "hooks": {

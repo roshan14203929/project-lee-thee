@@ -11,6 +11,8 @@ Work in the candidate directory and the run directory supplied by the
 orchestrator. Read the source spec, content inventory, asset manifest,
 references, and effective guidelines before editing.
 
+Run `python scripts/kit.py guidelines <project> <page> --role builder [--prev-hash <hash>]`. Line 1 = `GUIDELINE_CACHE_HIT` → Read the `path:` on line 2; else stdout is the full text. Never read `guidelines/` directly.
+
 ## Pre-build analysis (mandatory — do this before writing any HTML or CSS)
 
 1. **Visual scan first.** Before running any script, read the full-page Figma
@@ -80,14 +82,40 @@ taste-skill sections listed in `design-skills.md` (brief inference, guardrails,
 AI tells, pre-flight check) -- not the whole 87 KB file, most of which
 recommends frameworks and installs this workflow forbids.
 
-Produce exactly `images/`, `index.html`, `base.css`, and `page.css` as
-deployable output. Keep global rules in `base.css`, page/component rules in
-`page.css`, and all local assets in `images/`. Use exact source copy, semantic
-elements, native controls, maintainable CSS, and responsive behavior derived
-from supplied variants. Keep each semantic section's HTML independently
-replaceable (self-contained `<section>` blocks with clear IDs); shared CSS
-component classes may span sections — the repair-builder scopes repairs to the
-HTML section, not the CSS.
+**HTML5/M3, and native MediChannel builds:** produce exactly `images/`,
+`index.html`, `base.css`, and `page.css` as deployable output. Keep global
+rules in `base.css`, page/component rules in `page.css`, and all local assets
+in `images/` — use ordinary relative `images/...` paths, never a
+document-root-absolute one. This applies to every MediChannel run created by
+`new-run` (a native build). The nested AEM/JCR tree is a separate,
+later artifact produced by `materialize-medichannel.py` (at release or on
+demand) by splicing this flat output into the stored delivery template — this
+agent never writes into `content/`/`etc/designs/`/`content/dam/` directly.
+
+**Channel-conversion candidates only** (a run whose `run.json.convertedFrom
+.direction` is `m3-to-medichannel` — see `channel-conversion.md`): the
+candidate is already nested, produced by `convert-platform.py`'s mechanical
+transform, not flat. If invoked to resolve its `flagged` worklist, edit only
+within the existing nested document at `content/{contentRoot}/{articlePath}
+.html` (per `artifact-contract.md`'s nested shape) — do not flatten it or
+touch `_conversion-input/`.
+
+Use exact source copy, semantic elements, native controls, maintainable CSS,
+and responsive behavior derived from supplied variants. Keep each semantic
+section's HTML independently replaceable (self-contained `<section>` blocks
+with clear IDs); shared CSS component classes may span sections — the
+repair-builder scopes repairs to the HTML section, not the CSS.
+
+Before returning, self-check against the loaded effective guidelines —
+mechanical/objective items only, fix any failure before returning:
+- **MediChannel:** verify against `guidelines/medichannel/coding/xhtml-syntax.md`
+  and `guidelines/medichannel/coding/deviations.md`. Both are already in your
+  loaded guidelines — read them, do not check from memory. The editable-area
+  markers are the materializer's concern, not this candidate's; a flat
+  candidate has no markers.
+- **M3/HTML5:** verify against `guidelines/m3/coding/html5-delta.md` and the
+  character rules in `guidelines/global/coding/assets-media.md`. The character
+  handling is the reverse of MediChannel's; never cross-apply between platforms.
 
 Do not edit run state, QA, generated output, current output, or releases. Do not
 use frameworks, remote scripts, remote fonts, trackers, model APIs, or
@@ -95,5 +123,3 @@ fabricated content. Run the static verifier and return changed files,
 validation status, and unresolved conflicts.
 Figma evidence, user decisions, and effective guidelines override Taste
 guidance.
-
-Run `python scripts/kit.py guidelines <project> <page> --role builder [--prev-hash <hash>]`. Line 1 = `GUIDELINE_CACHE_HIT` → Read the `path:` on line 2; else stdout is the full text. Never read `guidelines/` directly.

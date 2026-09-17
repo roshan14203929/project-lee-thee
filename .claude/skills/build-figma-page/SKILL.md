@@ -28,7 +28,17 @@ Read these references before acting:
   [medichannel-rules.md](references/medichannel-rules.md) before delegating the
   build or a repair. Apply it only to MediChannel pages; it supplements the
   effective guidelines and does not replace this workflow or its QA gates.
+- For a MediChannel delivery, also read
+  [medichannel-materialization.md](references/medichannel-materialization.md)
+  before releasing: every native MediChannel run builds flat like HTML5/M3,
+  and the nested AEM/JCR tree the client's CMS expects is derived from that
+  flat output as a mandatory post-release step.
 - Read [commands.md](references/commands.md) for exact deterministic commands.
+- If the user asks to port an already-accepted page to the other platform,
+  read [channel-conversion.md](references/channel-conversion.md) before
+  starting the conversion run.
+- If the user asks for a PDF deliverable, read
+  [pdf-export.md](references/pdf-export.md) before exporting one.
 
 ## Inputs
 
@@ -137,7 +147,11 @@ every Agent tool invocation for that agent.
    machine QA JSON gates (`qa-record` / `qa-summary`) are separate and both are
    required.
 9. If every gate passes, invoke the release verifier and create a versioned
-   release.
+   release. For a MediChannel page, immediately follow with `release-materialize`
+   and `materialize-medichannel.py` to derive the nested AEM/JCR tree
+   (`releases/v-###/jcr/`) from the just-released flat `site/` — mandatory,
+   deterministic, and not a QA gate itself. See
+   `medichannel-materialization.md`.
 10. If gates fail and rounds remain, transition to `REFINING`, delegate a
     repair scoped to failed sections, evaluate the candidate, and repeat QA.
 11. Mark `NEEDS_REVIEW` when the cap is reached, improvement stalls, required
@@ -146,3 +160,24 @@ every Agent tool invocation for that agent.
 
 Return the project/page, source, run, final QA statuses, visual metrics, release
 path when created, unresolved findings, and whether user input is required.
+
+## Optional workflows
+
+These trigger only when the user explicitly asks for them. Neither is part of
+the default sequence above, and neither weakens or bypasses the QA gates.
+
+- **Channel conversion** — porting an already-accepted run to the other
+  platform. Replaces step 5's normal build with a mechanical transform plus a
+  targeted builder pass to resolve what the transform can't decide
+  automatically; steps 6–11 (structural check through release) are unchanged.
+  Follow [channel-conversion.md](references/channel-conversion.md).
+- **PDF export** — an additional deliverable attached to a run once it has an
+  accepted candidate; it does not require the run to have reached
+  `COMPLETED`. Adds two independently blocking QA kinds beyond the four in
+  step 8. Follow [pdf-export.md](references/pdf-export.md).
+- **On-demand MediChannel materialization** — previewing the nested AEM/JCR
+  shape of a MediChannel run before release (e.g. for a human reviewing an
+  in-progress repair candidate in its delivered form). The release-time
+  materialization in step 9 is mandatory and separate from this; this is
+  purely an optional mid-run preview. Follow
+  [medichannel-materialization.md](references/medichannel-materialization.md).

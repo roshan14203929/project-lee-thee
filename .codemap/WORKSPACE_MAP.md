@@ -2,7 +2,7 @@
 
 A local, multi-agent Figma-to-HTML workflow with immutable run state and four independent release gates.
 
-Fingerprint: `c0b91b1da84ba773` · 9 modules · 86 files · 9108 lines
+Fingerprint: `db5e135e49bdaa21` · 9 modules · 119 files · 14098 lines
 
 ## Start here
 
@@ -19,7 +19,7 @@ Fingerprint: `c0b91b1da84ba773` · 9 modules · 86 files · 9108 lines
 
 Defines repository purpose, commands, security boundaries, and guideline precedence.
 
-- Owns: 20 files, 2330 lines
+- Owns: 29 files, 1345 lines
 - Paths: `AGENTS.md`, `CLAUDE.md`, `README.md`, `PROJECT_REFERENCE.md`, `guidelines/**`, `requirements.txt`, `requirements-dev.txt`, `.gitignore`, `.mcp.json`
 - Depends on: none
 - Used by: `artifact-contracts`, `codemap-skill`, `figma-workflow-skill`, `project-workspaces`, `state-controller`
@@ -31,7 +31,7 @@ Defines repository purpose, commands, security boundaries, and guideline precede
 
 Orchestrates Figma extraction, candidate construction, independent QA, repair, and release.
 
-- Owns: 10 files, 931 lines
+- Owns: 13 files, 1461 lines
 - Paths: `.claude/skills/build-figma-page/**`
 - Depends on: `artifact-contracts`, `governance`, `host-adapters`, `render-and-qa`, `state-controller`, `validation-and-tests`
 - Used by: `host-adapters`, `project-workspaces`, `validation-and-tests`
@@ -52,7 +52,7 @@ Builds and queries the durable workspace map used for repository orientation.
 
 Configures Claude subagent roles and skills.
 
-- Owns: 11 files, 334 lines
+- Owns: 11 files, 429 lines
 - Paths: `.claude/agents/**`, `.claude/settings.json`, `.claude/settings.local.json`, `.claude/state/**`
 - Depends on: `figma-workflow-skill`
 - Used by: `figma-workflow-skill`, `validation-and-tests`
@@ -64,7 +64,7 @@ Configures Claude subagent roles and skills.
 
 Creates and transitions projects, pages, sources, runs, candidates, QA records, and releases.
 
-- Owns: 3 files, 902 lines
+- Owns: 3 files, 1227 lines
 - Paths: `scripts/kit.py`, `scripts/log-agent-event.py`, `scripts/report-usage.py`
 - Depends on: `artifact-contracts`, `governance`
 - Used by: `figma-workflow-skill`, `project-workspaces`, `render-and-qa`, `validation-and-tests`
@@ -75,7 +75,7 @@ Creates and transitions projects, pages, sources, runs, candidates, QA records, 
 
 Defines machine-readable schemas and example structures for sources, runs, specifications, content, and QA.
 
-- Owns: 10 files, 469 lines
+- Owns: 12 files, 559 lines
 - Paths: `schemas/**`, `templates/**`
 - Depends on: `governance`
 - Used by: `figma-workflow-skill`, `project-workspaces`, `render-and-qa`, `state-controller`, `validation-and-tests`
@@ -84,7 +84,7 @@ Defines machine-readable schemas and example structures for sources, runs, speci
 
 Serves and renders candidates, measures browser output, compares pixels, verifies accepted evidence, and generates the four human-reviewer QA DOCX deliverables (overview, design, content, coding).
 
-- Owns: 11 files, 2142 lines
+- Owns: 11 files, 2268 lines
 - Paths: `scripts/render-page.py`, `scripts/serve.py`, `scripts/browser-summary.py`, `scripts/visual-diff.py`, `scripts/visual-summary.py`, `scripts/verify-output.py`, `scripts/measure-footer.py`, `scripts/crop-bands.py`, `scripts/crop-region.py`, `scripts/create-qa-docs.py`, `scripts/populate-qa-agency15-316.py`, `qa-reports/**`
 - Depends on: `artifact-contracts`, `state-controller`
 - Used by: `figma-workflow-skill`, `validation-and-tests`
@@ -97,12 +97,12 @@ Serves and renders candidates, measures browser output, compares pixels, verifie
 
 Checks repository integrity and exercises lifecycle invariants and mapping behavior.
 
-- Owns: 17 files, 1412 lines
+- Owns: 23 files, 2733 lines
 - Paths: `scripts/validate-kit.py`, `tests/**`
 - Depends on: `artifact-contracts`, `codemap-skill`, `figma-workflow-skill`, `host-adapters`, `render-and-qa`, `state-controller`
 - Used by: `figma-workflow-skill`
 - Entry points: `scripts/validate-kit.py`
-- External packages: `PIL`, `__future__`, `conftest`, `datetime`, `hashlib`, `json`, `pathlib`, `pytest`, `shutil`, `subprocess`, `sys`
+- External packages: `PIL`, `__future__`, `conftest`, `datetime`, `hashlib`, `importlib.util`, `json`, `pathlib`, `pytest`, `re`, `shutil`, `subprocess`, `sys`, `test_conversion`
 
 ### Mutable artifacts
 
@@ -117,7 +117,21 @@ Provides the versioned template for project-local guideline workspaces while run
 
 ## Coverage
 
-Every mapped file has exactly one module owner.
+### Uncovered files (13)
+
+- `.env`
+- `.vscode/settings.json`
+- `delivery-templates/medichannel/1column/README.md`
+- `delivery-templates/medichannel/1column/manifest.json`
+- `delivery-templates/medichannel/1column/shell.html`
+- `docs/global.md`
+- `docs/m3.md`
+- `docs/medi.md`
+- `docs/rule-ids.md`
+- `docs/xhtml-vs-html5.md`
+- `scripts/convert-platform.py`
+- `scripts/materialize-medichannel.py`
+- `scripts/render-pdf.py`
 
 ## Agent navigation
 

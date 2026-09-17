@@ -23,6 +23,85 @@ def is_within(root: Path, target: Path) -> bool:
     return target == root or root in target.parents
 
 
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def read_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def resolve_spec(root: Path, args: dict[str, str]) -> dict[str, object]:
+    """Determine flat vs. MediChannel-JCR output shape.
+
+    Auto-detects from the candidate's own candidate.json (written by kit.py's
+    `new-candidate`) so the normal orchestrated invocation needs no extra
+    flags. A native MediChannel build is flat -- the same contract as
+    html5/M3 -- for the whole BUILDING/VERIFYING/REFINING lifecycle; only a
+    channel-conversion run's own candidates (run.json's
+    `convertedFrom.direction == "m3-to-medichannel"`, produced by
+    convert-platform.py's genuine HTML5->XHTML transform) are nested from
+    creation, so auto-detect only resolves to "jcr" for those. Legacy
+    candidate.json data with no `runId`, or a run.json that can't be read,
+    defaults to flat -- native is the norm now, not the exception.
+
+    Falls back to explicit --platform/--content-root/--dam-root/--css-root/
+    --article-path for ad hoc invocations with no candidate.json present --
+    this is also the documented way to independently validate a
+    *materialized* nested tree (releases/v-###/jcr/,
+    runs/<run>/materialized/materialized-###/jcr/), which has no
+    candidate.json of its own.
+    """
+    platform = args.get("platform")
+    content_root = args.get("content-root")
+    dam_root = args.get("dam-root")
+    css_root = args.get("css-root")
+    article_path = args.get("article-path")
+    candidate_meta = read_json(root / "candidate.json")
+    project_id = candidate_meta.get("projectId")
+    auto_detect = not platform and bool(project_id)
+    conversion = False
+    if auto_detect:
+        project = read_json(ROOT / "projects" / str(project_id) / "project.json")
+        platform = project.get("platform")
+        delivery = project.get("delivery") or {}
+        content_root = content_root or delivery.get("contentRoot")
+        dam_root = dam_root or delivery.get("damRoot")
+        css_root = css_root or delivery.get("cssRoot")
+        page_id = candidate_meta.get("pageId")
+        if page_id and not article_path:
+            page = read_json(ROOT / "projects" / str(project_id) / "pages" / str(page_id) / "page.json")
+            article_path = page.get("articlePath")
+        run_id = candidate_meta.get("runId")
+        if page_id and run_id:
+            run = read_json(ROOT / "projects" / str(project_id) / "pages" / str(page_id) / "runs" / str(run_id) / "run.json")
+            conversion = (run.get("convertedFrom") or {}).get("direction") == "m3-to-medichannel"
+    if platform != "medichannel" or (auto_detect and not conversion):
+        return {"kind": "flat"}
+    missing = [
+        name for name, value in (
+            ("--content-root", content_root), ("--dam-root", dam_root),
+            ("--css-root", css_root), ("--article-path", article_path),
+        ) if not value
+    ]
+    if missing:
+        raise ValueError(
+            f"MediChannel verification requires: {', '.join(missing)} "
+            "(read from the candidate's project/page, or pass explicitly)."
+        )
+    return {"kind": "jcr", "articlePath": article_path, "contentRoot": content_root, "damRoot": dam_root, "cssRoot": css_root}
+
+
+def jcr_paths(spec: dict[str, object]) -> tuple[Path, Path, Path, Path]:
+    article = Path(str(spec["articlePath"]))
+    html_rel = Path("content") / str(spec["contentRoot"]) / f"{spec['articlePath']}.html"
+    assets_rel = Path("content") / "dam" / str(spec["damRoot"]) / article
+    css_dir = Path("etc") / "designs" / "code" / str(spec["cssRoot"]) / article
+    return html_rel, assets_rel, css_dir / "base.css", css_dir / "page.css"
+
+
 def visible_text(value: str) -> str:
     value = re.sub(r"<script\b[^>]*>[\s\S]*?</script>", " ", value, flags=re.I)
     value = re.sub(r"<style\b[^>]*>[\s\S]*?</style>", " ", value, flags=re.I)
@@ -56,7 +135,11 @@ def visible_text(value: str) -> str:
 def main() -> int:
     args = options(sys.argv[1:])
     if not args.get("root"):
-        raise ValueError("Usage: verify-output.py --root <generated-dir> [--inventory content-inventory.json] [--output report.json]")
+        raise ValueError(
+            "Usage: verify-output.py --root <generated-dir> [--inventory content-inventory.json] "
+            "[--output report.json] [--platform html5|medichannel] [--content-root <path>] "
+            "[--dam-root <path>] [--css-root <path>] [--article-path <path>]"
+        )
     root = Path(args["root"]).resolve()
     # The default must NOT land inside root: this script enforces an exact-set
     # payload contract on root, so writing the report there makes the next run fail.
@@ -75,28 +158,59 @@ def main() -> int:
         except Exception:
             return ""
 
-    index_path = root / "index.html"
+    spec = resolve_spec(root, args)
+    if spec["kind"] == "flat":
+        index_path, base_css_path, page_css_path, images_dir = root / "index.html", root / "base.css", root / "page.css", root / "images"
+    else:
+        html_rel, assets_rel, base_rel, page_rel = jcr_paths(spec)
+        index_path, base_css_path, page_css_path, images_dir = root / html_rel, root / base_rel, root / page_rel, root / assets_rel
+
     document = text_of(index_path)
-    base_css, page_css = text_of(root / "base.css"), text_of(root / "page.css")
+    base_css, page_css = text_of(base_css_path), text_of(page_css_path)
     css = f"{base_css}\n{page_css}"
     if not document:
-        add("missing-index", "critical", "index.html is missing or empty.")
+        add("missing-index", "critical", f"{index_path.relative_to(root).as_posix()} is missing or empty.")
     if not base_css:
-        add("missing-base-css", "critical", "base.css is missing or empty.")
+        add("missing-base-css", "critical", f"{base_css_path.relative_to(root).as_posix()} is missing or empty.")
     if not page_css:
-        add("missing-page-css", "critical", "page.css is missing or empty.")
-    if not (root / "images").is_dir():
-        add("missing-images", "critical", "images/ is missing or is not a directory.")
-    expected = ["base.css", "images", "index.html", "page.css"]
-    try:
-        # candidate.json is lifecycle metadata and structural-check/ is
-        # pre-acceptance diagnostic evidence (per the artifact contract, both live
-        # in the candidate dir). Neither is part of the deployable payload.
-        found = sorted(entry.name for entry in root.iterdir() if entry.name not in ("candidate.json", "structural-check"))
-    except Exception:
-        found = []
-    if found != expected:
-        add("invalid-output-structure", "critical", f"Deployable output must contain exactly: {', '.join(expected)}. Found: {', '.join(found)}.")
+        add("missing-page-css", "critical", f"{page_css_path.relative_to(root).as_posix()} is missing or empty.")
+    if not images_dir.is_dir():
+        add("missing-images", "critical", f"{images_dir.relative_to(root).as_posix()}/ is missing or is not a directory.")
+
+    if spec["kind"] == "flat":
+        expected = ["base.css", "images", "index.html", "page.css"]
+        try:
+            # candidate.json is lifecycle metadata, structural-check/ is
+            # pre-acceptance diagnostic evidence, and _conversion-input/ is the
+            # frozen source payload for a channel-conversion candidate (per the
+            # artifact contract, all three live in the candidate dir). None of
+            # them are part of the deployable payload.
+            found = sorted(entry.name for entry in root.iterdir() if entry.name not in ("candidate.json", "structural-check", "_conversion-input"))
+        except Exception:
+            found = []
+        if found != expected:
+            add("invalid-output-structure", "critical", f"Deployable output must contain exactly: {', '.join(expected)}. Found: {', '.join(found)}.")
+    else:
+        assets_rel = images_dir.relative_to(root)
+        allowed_files = {index_path.relative_to(root), base_css_path.relative_to(root), page_css_path.relative_to(root)}
+        allowed_dirs = {
+            p for rel in (*allowed_files, assets_rel)
+            for p in rel.parents if p != Path(".")
+        } | {assets_rel}
+        stray: list[str] = []
+        for entry in sorted(root.rglob("*")):
+            rel = entry.relative_to(root)
+            if rel.parts[0] in ("candidate.json", "structural-check", "_conversion-input"):
+                continue
+            if rel == assets_rel or assets_rel in rel.parents:
+                continue
+            if entry.is_dir():
+                if rel not in allowed_dirs:
+                    stray.append(rel.as_posix() + "/")
+            elif rel not in allowed_files:
+                stray.append(rel.as_posix())
+        if stray:
+            add("invalid-output-structure", "critical", f"Deployable output contains unexpected entries not part of the JCR payload: {', '.join(stray)}.")
     # Accept the HTML5 shorthand (<!doctype html>) and the full XHTML 1.0 Strict
     # DOCTYPE, which may be preceded by an <?xml ...?> declaration. MediChannel
     # deliveries are XHTML 1.0 Strict, not HTML5.
@@ -136,7 +250,19 @@ def main() -> int:
 
     references = set(re.findall(r"(?:src|href)=[\"']([^\"'#?]+)[\"']", document, flags=re.I))
     references.update(re.findall(r"url\(\s*[\"']?([^\"')?#]+)[\"']?\s*\)", css, flags=re.I))
+    # MediChannel image/asset references are document-root-absolute AEM DAM paths
+    # (/content/dam/<damRoot>/<articlePath>/...), not relative. Resolve those back
+    # into the local candidate tree so they get the same broken-reference check as
+    # every relative reference, instead of being silently skipped as "absolute".
+    dam_prefix = f"/content/dam/{spec['damRoot']}/{spec['articlePath']}/" if spec["kind"] == "jcr" else None
     for reference in references:
+        if dam_prefix and reference.startswith(dam_prefix):
+            local = (images_dir / reference[len(dam_prefix):]).resolve()
+            if not is_within(root, local):
+                add("unsafe-reference", "critical", f"Asset reference escapes generated root: {reference}")
+            elif not local.exists():
+                add("broken-reference", "high", f"Local asset does not exist: {reference}")
+            continue
         # Skip non-local schemes (external URLs, data URIs, mailto, tel, etc.)
         if re.match(r"^(?:https?:|data:|mailto:|tel:|javascript:|//)", reference, flags=re.I) or reference.startswith("/"):
             continue

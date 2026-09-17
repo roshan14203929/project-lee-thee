@@ -3,9 +3,10 @@
 Run from the kit root.
 
 ```bash
-python scripts/kit.py init-project <project> "<name>" [--platform medichannel|html5]
-python scripts/kit.py set-platform <project> --platform medichannel|html5
-python scripts/kit.py init-page <project> <page> "<name>"
+python scripts/kit.py init-project <project> "<name>" --platform medichannel [--content-root <path>] [--dam-root <path>] [--css-root <path>] [--template 1column]
+python scripts/kit.py init-project <project> "<name>" --platform html5
+python scripts/kit.py set-platform <project> --platform medichannel|html5 [--content-root <path>] [--dam-root <path>] [--css-root <path>] [--template 1column]
+python scripts/kit.py init-page <project> <page> "<name>" [--article-path <path>]
 python scripts/kit.py new-source <project> <page> --variant desktop=<url> --variant mobile=<url>
 python scripts/kit.py new-source <project> <page> --from-source <source> --changed-node desktop=<node-id> --reason "<change>"
 python scripts/kit.py source-budget <project> <page> <source>
@@ -23,7 +24,7 @@ python scripts/kit.py guidelines <project> <page> [--role builder|extractor|ui|c
 python scripts/kit.py new-run <project> <page> --source <source>
 python scripts/kit.py transition <project> <page> <run> BUILDING
 python scripts/kit.py new-candidate <project> <page> <run> --round 0 --scope full-page
-python scripts/verify-output.py --root <candidate-dir> --inventory <inventory> --output <report>
+python scripts/verify-output.py --root <candidate-dir> --inventory <inventory> --output <report> [--platform html5|medichannel --content-root <path> --dam-root <path> --css-root <path> --article-path <path>]
 python scripts/render-page.py --root <candidate-dir> --output <candidate.png> --width <width> --height <height> [--scale 1] --full-page false
 python scripts/browser-summary.py --report <desktop.png.json> --report <mobile.png.json> --output <browser-summary.json>
 python scripts/visual-diff.py --reference <reference.png> --candidate <candidate.png> --output <visual-review.json>
@@ -42,6 +43,20 @@ python scripts/kit.py release <project> <page> <run>
 python scripts/kit.py needs-review <project> <page> <run> --message "<reason>"
 python scripts/kit.py fail <project> <page> <run> --message "<reason>"
 python scripts/create-qa-docs.py <TICKET>
+python scripts/kit.py convert-source <project> <page> --from-project <p> --from-page <pg> --from-source <source> [--force-new]
+python scripts/kit.py new-conversion-run <project> <page> --direction m3-to-medichannel|medichannel-to-m3 --from-project <p> --from-page <pg> --from-run <run> --from-candidate <candidate>
+python scripts/kit.py new-candidate <project> <page> <run> --round 0 --from-external <project>/<page>/<run>/<candidate>
+python scripts/convert-platform.py --direction m3-to-medichannel|medichannel-to-m3 --input <dir> --output <dir> --content-root <path> --dam-root <path> --css-root <path> --article-path <path> --output-report <report.json>
+python scripts/kit.py new-pdf-export <project> <page> <run> --from-candidate <candidate>
+python scripts/render-pdf.py --root <run>/generated --output <index.pdf> [--entry index.html] [--width 960] [--page-format A4] --strip-report <report.json>
+python scripts/kit.py pdf-result <project> <page> <run> <pdf-id> --status ready|failed --file <meta.json>
+python scripts/kit.py pdf-qa-record <project> <page> <run> <pdf-id> content|visual-cutoff --file <qa.json>
+python scripts/kit.py pdf-qa-summary <project> <page> <run> <pdf-id>
+python scripts/kit.py pdf-release <project> <page> <run> <pdf-id>
+python scripts/kit.py new-materialization <project> <page> <run> [--from-candidate <candidate>]
+python scripts/materialize-medichannel.py --input <flat-dir> --output <dir> --content-root <path> --dam-root <path> --css-root <path> --article-path <path> [--template 1column] --output-report <report.json>
+python scripts/kit.py materialization-result <project> <page> <run> <materialization-id> --status ready|failed --file <report.json>
+python scripts/kit.py release-materialize <project> <page> <run>
 ```
 
 `create-qa-docs.py <TICKET>` generates four human-reviewer DOCX files under
@@ -57,20 +72,55 @@ as a single render report and may aggregate several viewport render reports.
 The `release` command requires the run to be `VERIFYING`, current-candidate
 passing reports for all four QA kinds, a matching recorded release-verifier
 verdict, and the exact generated payload: `images/`, `index.html`, `base.css`,
-and `page.css`.
+and `page.css` — for HTML5/M3 **and** for every native MediChannel run (a run
+with no `convertedFrom.direction == "m3-to-medichannel"`). Only a
+channel-conversion run's release is the nested `content/`/`content/dam/`/
+`etc/designs/` tree described in `artifact-contract.md`. For a native
+MediChannel run, follow `release` with `release-materialize` to derive that
+nested tree as a separate, additional artifact — see
+`medichannel-materialization.md`. `project.json.delivery` and
+`page.json.articlePath` (set via `init-project`/`set-platform
+--content-root/--dam-root/--css-root/--template` and `init-page
+--article-path`) are only required at materialization time, not at build time.
 
-`guidelines` resolves the global, base, project, and page layers in precedence
-order. With `--role` it includes that role's file from `guidelines/base/` **plus
-the project's platform bundle**, which is how every agent should read its
-guidelines. `new-run` still writes the unscoped snapshot to
-`effective-guidelines.md`, so release evidence stays complete.
+`guidelines` resolves the global, channel, project, and page layers in
+precedence order. `--role` is mandatory for agent reads and must carry a value:
+a bare or repeated `--role` is rejected, because it used to fall back silently
+to the unscoped both-channel snapshot.
+
+A role-scoped read delivers, in precedence order:
+
+1. `guidelines/global/general-rules.md` — precedence and the channel table.
+2. `guidelines/global/fidelity.md` — the shared content/UI/quality bar, for the
+   builder and the four QA roles (not the extractor).
+3. The role's own file: `builder.md`, `extractor.md`, or
+   `guidelines/global/qa/<role>-qa.md`.
+4. **Only the `guidelines/global/coding/*.md` files that role can act on** — see
+   `CODING_FOR_ROLE` in `scripts/kit.py`. `base-css-template.md` is builder-only:
+   it is non-normative sample CSS carrying comment banners, and `technical-qa.md`
+   requires delivered CSS to contain zero comments, so shipping it to a reviewer
+   manufactures false findings.
+5. The project's channel bundle (`guidelines/medichannel/` or `guidelines/m3/`).
+6. Project, then page guidelines.
+
+`guidelines/global/orchestrator.md` (run immutability, QA gate thresholds,
+candidate acceptance, release) reaches **no role** — those rules belong to the
+primary orchestrator, which learns them from this skill while `kit.py` enforces
+them. It is still archived in the unscoped snapshot.
+
+`new-run` still writes the unscoped snapshot to `effective-guidelines.md`, so
+release evidence stays complete.
 
 Platform is a second axis, orthogonal to role. MediChannel (XHTML 1.0 Strict)
-delivers `xhtml-coding-rules.md`, `medichannel-delivery-standards.md`, and
-`xhtml-vs-html5-reference.md` to every role, plus `az-html-qa-guide.md` to the
-four QA roles; HTML5 delivers `html-coding-rules.md`. `new-run` fails until a
-platform is set, and a role-scoped read with no platform opens with an explicit
-warning rather than silently omitting the standards.
+delivers `guidelines/medichannel/general-rules.md` and every file under
+`guidelines/medichannel/coding/` to every role, plus every file under
+`guidelines/medichannel/qa/` to the four QA roles; HTML5 delivers
+`guidelines/m3/general-rules.md` and `guidelines/m3/coding/html5-delta.md`. The
+`guidelines/global/coding/` baseline is channel-agnostic and is delivered even
+when no platform is set, so a builder is never left with no coding standards.
+`new-run` fails until a platform is set, and a role-scoped read with no
+platform opens with an explicit warning rather than silently omitting the
+standards.
 
 `crop-bands.py` reads a `visual-diff.py` report, fuses its adjacent `worstBands`
 into coherent regions, and writes native-resolution reference/candidate/diff
@@ -122,3 +172,18 @@ reference was exported above 1x, so the candidate is rasterized natively instead
 of resampling the reference. `visual-diff.py` requires exact dimension equality;
 a mismatch returns `status: ERROR`, `reason: dimension-mismatch`, and exit 3,
 which means *evidence is missing*, not that the page regressed.
+
+`convert-source`, `new-conversion-run`, `new-candidate --from-external`, and
+`convert-platform.py` port an already-accepted page to the other platform; see
+`channel-conversion.md` before using any of them. `new-pdf-export`,
+`render-pdf.py`, `pdf-result`, `pdf-qa-record`, `pdf-qa-summary`, and
+`pdf-release` attach a PDF deliverable to a run; see `pdf-export.md`. Both are
+optional workflows triggered only when the user asks for them.
+
+`new-materialization`, `materialize-medichannel.py`, `materialization-result`,
+and `release-materialize` derive the nested AEM/JCR tree from a *native*
+MediChannel run's flat output — mandatory once at release, optional on demand
+mid-run for a preview. Never confuse this with the channel-conversion commands
+above: conversion produces a genuinely nested candidate for a *new page*;
+materialization derives a nested *artifact* from the *same* page's own flat
+build. See `medichannel-materialization.md`.

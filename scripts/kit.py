@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Python lifecycle controller for Layerlift project artifacts."""
 from __future__ import annotations
-import copy, hashlib, json, re, shutil, sys
+import copy, hashlib, json, re, shutil, sys, time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse, urlunparse, parse_qs
@@ -9,6 +9,16 @@ from urllib.parse import unquote, urlparse, urlunparse, parse_qs
 ROOT=Path(__file__).resolve().parent.parent; PROJECTS=ROOT/'projects'; ID=re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$'); TERMINAL={'COMPLETED','NEEDS_REVIEW','FAILED'}; QA=('content','ui','accessibility','technical'); PAYLOAD=['base.css','images','index.html','page.css']; TRANS={'CREATED':{'BUILDING','FAILED'},'BUILDING':{'VERIFYING','FAILED'},'VERIFYING':{'REFINING','COMPLETED','NEEDS_REVIEW','FAILED'},'REFINING':{'VERIFYING','NEEDS_REVIEW','FAILED'}}
 COMPACT_OUT={'inventory','spec-compact'}
 def bad(s): raise ValueError(s)
+def replace_atomic(t,f,tries=8):
+ # On Windows an antivirus scanner or the search indexer can briefly hold a
+ # freshly written .tmp, so the atomic replace intermittently raises
+ # PermissionError (WinError 5). The write itself already succeeded, so retry
+ # briefly rather than fail a run for a transient lock.
+ for i in range(tries):
+  try:return t.replace(f)
+  except PermissionError:
+   if i==tries-1:raise
+   time.sleep(0.05*(i+1))
 def now(): return datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')
 def dump(v,compact=False): return json.dumps(v,ensure_ascii=False,indent=None if compact else 2,separators=(',',':') if compact else None)
 def sha(v): return hashlib.sha256(dump(v,True).encode()).hexdigest()
@@ -22,6 +32,11 @@ def sid(v):
 def rid(v):
  if not isinstance(v,str) or not re.fullmatch(r'run-\d{3,}',v): bad(f"Invalid run identifier: {v if v is not None else '<missing>'}")
  return v
+def extref(v):
+ parts=str(v).split('/')
+ if len(parts)!=4:bad(f"Invalid external reference (expected project/page/run/candidate): {v}")
+ xa,xb,xr,xc=parts
+ return safe(xa,'source project identifier'),safe(xb,'source page identifier'),rid(xr),safe(xc,'source candidate identifier')
 def opts(v):
  p=[];o={};i=0
  while i<len(v):
@@ -36,9 +51,9 @@ def prj(a): return PROJECTS/safe(a,'project identifier')
 def page(a,b): return prj(a)/'pages'/safe(b,'page identifier')
 def src(a,b,c): return page(a,b)/'sources'/sid(c)
 def run(a,b,c): return page(a,b)/'runs'/rid(c)
-def read(f): return json.loads(Path(f).read_text(encoding='utf8'))
+def read(f): return json.loads(Path(f).read_text(encoding='utf-8-sig'))
 def write(f,v):
- f=Path(f);f.parent.mkdir(parents=True,exist_ok=True); t=f.with_name(f.name+'.tmp');t.write_text(dump(v)+'\n',encoding='utf8');t.replace(f)
+ f=Path(f);f.parent.mkdir(parents=True,exist_ok=True); t=f.with_name(f.name+'.tmp');t.write_text(dump(v)+'\n',encoding='utf8');replace_atomic(t,f)
 def update(f,fn):
  v=fn(copy.deepcopy(read(f)));write(f,v);return v
 def cp(a,b):
@@ -56,12 +71,33 @@ def rm(a):
  else: a.unlink(missing_ok=True)
 def numbered(d,p):
  n=[int(m.group(1)) for x in Path(d).glob(f'{p}-*') if x.is_dir() and (m:=re.fullmatch(re.escape(p)+r'-(\d+)',x.name))]; return f'{p}-{max(n,default=0)+1:03d}'
-def payload(d,label,ignore=()):
+def jcr_paths(spec):
+ ap=Path(spec['articlePath']);html_rel=Path('content')/spec['contentRoot']/f"{spec['articlePath']}.html";assets_rel=Path('content')/'dam'/spec['damRoot']/ap;css_dir=Path('etc')/'designs'/'code'/spec['cssRoot']/ap
+ return html_rel,assets_rel,css_dir/'base.css',css_dir/'page.css',css_dir
+def dam_prefix(spec):return f"/content/dam/{spec['damRoot']}/{spec['articlePath']}/"
+def css_prefix(spec):return f"/etc/designs/code/{spec['cssRoot']}/{spec['articlePath']}/"
+def payload(d,label,spec,ignore=('candidate.json','structural-check','_conversion-input')):
  d=Path(d)
- for x in PAYLOAD:
-  if not(d/x).exists():bad(f'{label} is missing {x}.')
- found=sorted(x.name for x in d.iterdir() if x.name not in ignore)
- if found!=PAYLOAD:bad(f"{label} must contain exactly: {', '.join(PAYLOAD)}. Found: {', '.join(found)}.")
+ if spec['kind']=='flat':
+  for x in PAYLOAD:
+   if not(d/x).exists():bad(f'{label} is missing {x}.')
+  found=sorted(x.name for x in d.iterdir() if x.name not in ignore)
+  if found!=PAYLOAD:bad(f"{label} must contain exactly: {', '.join(PAYLOAD)}. Found: {', '.join(found)}.")
+  return
+ html_rel,assets_rel,base_rel,page_rel,css_dir=jcr_paths(spec)
+ for rel,what in ((html_rel,'article HTML'),(base_rel,'base.css'),(page_rel,'page.css')):
+  if not (d/rel).is_file():bad(f'{label} is missing {rel.as_posix()} ({what}).')
+ if not (d/assets_rel).is_dir():bad(f'{label} is missing {assets_rel.as_posix()}/ (DAM asset directory).')
+ allowed_files={html_rel,base_rel,page_rel};allowed_dirs={p for rel in (html_rel,assets_rel,base_rel,page_rel) for p in rel.parents if p!=Path('.')}|{assets_rel}
+ stray=[]
+ for x in sorted(d.rglob('*')):
+  rel=x.relative_to(d)
+  if rel.parts[0] in ignore:continue
+  if rel==assets_rel or assets_rel in rel.parents:continue
+  if x.is_dir():
+   if rel not in allowed_dirs:stray.append(rel.as_posix()+'/')
+  elif rel not in allowed_files:stray.append(rel.as_posix())
+ if stray:bad(f"{label} contains unexpected entries not part of the JCR payload: {', '.join(stray)}.")
 def figurl(v):
  q=urlparse(str(v));
  if q.scheme!='https' or not(q.hostname=='figma.com' or (q.hostname or '').endswith('.figma.com')): bad(f'Figma URL must use HTTPS on figma.com: {v}')
@@ -95,10 +131,10 @@ def active(**kw):
  """Record the active run so the SubagentStop audit hook can attribute events."""
  try:
   if kw.get('status') in TERMINAL:ACTIVE.unlink(missing_ok=True);return
-  cur=json.loads(ACTIVE.read_text(encoding='utf8')) if ACTIVE.exists() else {}
+  cur=json.loads(ACTIVE.read_text(encoding='utf-8-sig')) if ACTIVE.exists() else {}
   if not isinstance(cur,dict):cur={}
   ACTIVE.parent.mkdir(parents=True,exist_ok=True);t=ACTIVE.with_suffix('.json.tmp')
-  t.write_text(dump({**cur,**{k:v for k,v in kw.items() if v is not None},'updatedAt':now()})+'\n',encoding='utf8');t.replace(ACTIVE)
+  t.write_text(dump({**cur,**{k:v for k,v in kw.items() if v is not None},'updatedAt':now()})+'\n',encoding='utf8');replace_atomic(t,ACTIVE)
  except Exception:pass
 def transition(a,b,c,status,extra={}):
  f=run(a,b,c)/'run.json'
@@ -110,26 +146,79 @@ def transition(a,b,c,status,extra={}):
 def checkplatform(v):
  if v is None or v is True:return None
  v=str(v).strip().lower()
- if v not in PLATFORMS:bad(f"Unknown platform: {v}. Use one of: {', '.join(sorted(PLATFORMS))}.")
+ if v not in PLATFORM_DIR:bad(f"Unknown platform: {v}. Use one of: {', '.join(sorted(PLATFORM_DIR))}.")
  return v
+PATHFRAG=re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*$')
+def pathfrag(v,label):
+ v=str(v).strip()
+ if not v or not PATHFRAG.fullmatch(v):bad(f"Invalid {label}: {v or '<empty>'}")
+ return v
+DELIVERY_FLAGS=(('content-root','contentRoot'),('dam-root','damRoot'),('css-root','cssRoot'))
+DEFAULT_TEMPLATE='1column'
+def template_id(v):
+ v=pathfrag(v,'--template')
+ root=ROOT/'delivery-templates'/'medichannel'
+ if not (root/v/'shell.html').exists():
+  avail=sorted(p.name for p in root.iterdir() if (p/'shell.html').exists()) if root.exists() else []
+  bad(f"Unknown MediChannel delivery template: {v}. Available: {', '.join(avail) or '<none>'}.")
+ return v
+def delivery_overrides(o):
+ out={}
+ for flag,key in DELIVERY_FLAGS:
+  if flag in o:
+   if o[flag] is True:bad(f"--{flag} requires a value.")
+   out[key]=pathfrag(o[flag],f'--{flag}')
+ if 'template' in o:
+  if o['template'] is True:bad('--template requires a value.')
+  out['template']=template_id(o['template'])
+ return out
+def require_delivery(d):
+ # Content/dam/css roots are per-engagement JCR paths. A default would
+ # silently publish one client's build into another client's content tree.
+ # The delivery template has a safe default -- it's a shared shell, not a
+ # per-engagement path -- so it's the one field that's optional here.
+ missing=[f'--{flag}' for flag,key in DELIVERY_FLAGS if not d.get(key)]
+ if missing:bad(f"A medichannel project requires {', '.join(missing)} with no default.")
+ return {**{key:d[key] for flag,key in DELIVERY_FLAGS},'template':d.get('template') or DEFAULT_TEMPLATE}
 def init_project(a,name,o=None):
  d=prj(a)
  if d.exists(): bad(f'Project already exists: {a}')
- pf=checkplatform((o or {}).get('platform'))
- t=now();(d/'guidelines').mkdir(parents=True);(d/'pages').mkdir();write(d/'project.json',{'id':a,'name':name or a,'description':'','platform':pf,'createdAt':t,'updatedAt':t});return {'projectId':a,'root':str(d),'platform':pf}
+ o=o or {};pf=checkplatform(o.get('platform'));overrides=delivery_overrides(o)
+ if overrides and pf!='medichannel':bad('--content-root/--dam-root/--css-root require --platform medichannel.')
+ delivery=require_delivery(overrides) if pf=='medichannel' else None
+ t=now();(d/'guidelines').mkdir(parents=True);(d/'pages').mkdir();write(d/'project.json',{'id':a,'name':name or a,'description':'','platform':pf,'delivery':delivery,'createdAt':t,'updatedAt':t});return {'projectId':a,'root':str(d),'platform':pf,'delivery':delivery}
 def setplatform(a,o):
  f=prj(a)/'project.json'
  if not f.exists():bad(f'Project does not exist: {a}')
  pf=checkplatform(o.get('platform'))
- if pf is None:bad(f"set-platform requires --platform <{'|'.join(sorted(PLATFORMS))}>.")
- update(f,lambda x:{**x,'platform':pf,'updatedAt':now()});return {'projectId':a,'platform':pf,'guidelines':sorted(f"guidelines/base/{n}" for n in platform_files('builder',pf)|platform_files('ui',pf))}
-def init_page(a,b,name):
+ if pf is None:bad(f"set-platform requires --platform <{'|'.join(sorted(PLATFORM_DIR))}>.")
+ overrides=delivery_overrides(o)
+ if overrides and pf!='medichannel':bad('--content-root/--dam-root/--css-root require --platform medichannel.')
+ def fn(x):
+  delivery=require_delivery({**(x.get('delivery') or {}),**overrides}) if pf=='medichannel' else None
+  return {**x,'platform':pf,'delivery':delivery,'updatedAt':now()}
+ v=update(f,fn);return {'projectId':a,'platform':pf,'delivery':v.get('delivery'),'guidelines':sorted({p.relative_to(ROOT).as_posix() for p in platform_files('builder',pf)+platform_files('ui',pf)+coding_files('builder')+coding_files('ui')})}
+def init_page(a,b,name,o=None):
  require_page_base=prj(a)
  if not (require_page_base/'project.json').exists(): bad(f'Project does not exist: {a}')
- d=page(a,b)
+ o=o or {};d=page(a,b)
  if d.exists():bad(f'Page already exists: {a}/{b}')
+ plat=platform_of(a);ap=o.get('article-path')
+ if plat=='medichannel':
+  if not ap or ap is True:bad('init-page requires --article-path <path> for a medichannel project.')
+  ap=pathfrag(ap,'--article-path')
+ elif ap is not None:bad('--article-path only applies to medichannel projects.')
  for x in ('guidelines','sources','runs','releases'):(d/x).mkdir(parents=True,exist_ok=True)
- t=now();write(d/'page.json',{'id':b,'name':name or b,'status':'DRAFT','currentSourceId':None,'currentRunId':None,'currentReleaseId':None,'createdAt':t,'updatedAt':t});return {'projectId':a,'pageId':b,'root':str(d)}
+ t=now();write(d/'page.json',{'id':b,'name':name or b,'status':'DRAFT','currentSourceId':None,'currentRunId':None,'currentReleaseId':None,'articlePath':ap,'createdAt':t,'updatedAt':t});return {'projectId':a,'pageId':b,'root':str(d),'articlePath':ap}
+def setarticlepath(a,b,o):
+ # Recovery path for a page created before its project became medichannel,
+ # which leaves articlePath unset and blocks every candidate and release.
+ d=require_page(a,b)
+ if platform_of(a)!='medichannel':bad('--article-path only applies to medichannel projects.')
+ ap=(o or {}).get('article-path')
+ if not ap or ap is True:bad('set-article-path requires --article-path <path>.')
+ v=update(d/'page.json',lambda x:{**x,'articlePath':pathfrag(ap,'--article-path'),'updatedAt':now()})
+ return {'projectId':a,'pageId':b,'articlePath':v.get('articlePath')}
 def new_source(a,b,o):
  d=require_page(a,b); base=o.get('from-source'); changes=[]
  for z in vals(o.get('changed-node')):
@@ -172,6 +261,27 @@ def new_source(a,b,o):
  ident=numbered(d/'sources','source');r=src(a,b,ident)
  for x in ('raw','spec','assets','reference'):(r/x).mkdir(parents=True,exist_ok=True)
  t=now();write(r/'source.json',{'id':ident,'status':'EXTRACTING','fingerprint':f,'extractionMode':'FULL','baseSourceId':None,'changeSet':None,'figma':{'url':vs[0]['url'],'variants':vs},'referenceState':{x['label']:'PENDING' for x in vs},'provenance':{'reusedFrom':None,'refreshedSections':[],'refreshedAssets':[],'appliedPatches':[]},'callLedger':[],'forceNewReason':o['reason'].strip() if force else None,'createdAt':t,'completedAt':None,'warnings':[],'error':None});return {'projectId':a,'pageId':b,'sourceId':ident,'root':str(r),'reused':False,'created':True,'extractionMode':'FULL'}
+def convertsource(a,b,o):
+ # Materializes another page's READY source (spec/inventory/pattern-map/
+ # assets/references) into this page's own sources/, so every existing tool
+ # that resolves paths under a page's own sources/ keeps working unmodified
+ # for a channel-conversion run. Sources are page-scoped, so a page targeting
+ # a different platform has no access to another page's sources otherwise.
+ d=require_page(a,b)
+ fa=safe(o.get('from-project'),'source project identifier');fb=safe(o.get('from-page'),'source page identifier');fc=sid(o.get('from-source'))
+ osrc=read(src(fa,fb,fc)/'source.json')
+ if osrc['status']!='READY':bad(f"Source {fc} is {osrc['status']}, not READY.")
+ force=o.get('force-new') in (True,'true')
+ du=next((x for x in sources(a,b) if (x.get('provenance') or {}).get('convertedFrom')=={'project':fa,'page':fb,'sourceId':fc}),None)
+ if du and not force:
+  if du['status']=='READY':return {'projectId':a,'pageId':b,'sourceId':du['id'],'root':str(src(a,b,du['id'])),'reused':True}
+  bad(f"Matching converted source {du['id']} is {du['status']}. Reuse it, or pass --force-new for a fresh copy.")
+ ident=numbered(d/'sources','source');r=src(a,b,ident);orig=src(fa,fb,fc)
+ for x in ('spec','assets','reference'):
+  cp(orig/x,r/x) if (orig/x).exists() else (r/x).mkdir(parents=True,exist_ok=True)
+ if (orig/'asset-manifest.json').exists():cp(orig/'asset-manifest.json',r/'asset-manifest.json')
+ t=now();write(r/'source.json',{'id':ident,'status':'READY','fingerprint':osrc.get('fingerprint'),'extractionMode':osrc.get('extractionMode','FULL'),'baseSourceId':None,'changeSet':None,'figma':copy.deepcopy(osrc['figma']),'referenceState':{k:'REUSED' for k in osrc.get('referenceState',{})},'provenance':{'reusedFrom':None,'refreshedSections':[],'refreshedAssets':[],'appliedPatches':[],'convertedFrom':{'project':fa,'page':fb,'sourceId':fc}},'callLedger':[],'forceNewReason':None,'createdAt':t,'completedAt':t,'warnings':[],'error':None})
+ return {'projectId':a,'pageId':b,'sourceId':ident,'root':str(r),'reused':False,'convertedFrom':{'project':fa,'page':fb,'sourceId':fc}}
 def call(a,b,c,o):
  f=src(a,b,c)/'source.json';s=read(f)
  if s['status']!='EXTRACTING':bad(f"Source {c} is immutable because it is {s['status']}.")
@@ -194,7 +304,7 @@ def budget(a,b,c):
  s=read(src(a,b,c)/'source.json');until=s.get('rateLimit',{}).get('blockedUntil');d=datetime.fromisoformat(until.replace('Z','+00:00')) if until else None;ok=not d or d<=datetime.now(timezone.utc);return {'projectId':a,'pageId':b,'sourceId':c,'allowed':ok,'blockedUntil':None if ok else until,'retryAfterSeconds':0 if ok else max(1,int((d-datetime.now(timezone.utc)).total_seconds()+.999))}
 INVFIELDS=('id','kind','text','required','nodeId','sectionId','variant')
 def wcompact(f,v):
- f=Path(f);t=f.with_name(f.name+'.tmp');t.write_text(dump(v,True)+'\n',encoding='utf8');t.replace(f)
+ f=Path(f);t=f.with_name(f.name+'.tmp');t.write_text(dump(v,True)+'\n',encoding='utf8');replace_atomic(t,f)
 def styletable(v):
  items=v.get('items')
  if not isinstance(items,list) or not items:return v
@@ -367,81 +477,177 @@ def ready(a,b,c):
   if not ref or Path(ref).name not in png:bad(f"Source variant {v['label']} has no matching PNG reference export.")
  norm=compact(a,b,c)
  t=now();update(f,lambda x:{**x,'status':'READY','completedAt':t,'error':None,'referenceState':x['referenceState'] if x.get('extractionMode')=='INCREMENTAL' else {z['label']:'REFRESHED' for z in x['figma']['variants']}});update(page(a,b)/'page.json',lambda x:{**x,'status':'SOURCE_READY','currentSourceId':c,'updatedAt':t});return {'projectId':a,'pageId':b,'sourceId':c,'status':'READY','normalized':norm['normalized']}
-GUIDE=ROOT/'guidelines';ROLES={'builder':'builder','extractor':'extractor','ui':'ui-qa','content':'content-qa','accessibility':'accessibility-qa','technical':'technical-qa'}
+GUIDE=ROOT/'guidelines';GLOBAL=GUIDE/'global'
+# Cross-role global layer. general-rules.md is always first; fidelity.md is the
+# shared content/UI/quality bar, needed by the builder and the reviewers but not
+# by the extractor. global/orchestrator.md is deliberately in neither map: run,
+# gate, and release rules belong to the primary orchestrator, so no role read
+# delivers them (the unscoped read still archives them for release evidence).
+ROLE_GLOBAL={'builder':('fidelity.md',),'extractor':(),'ui':('fidelity.md',),'content':('fidelity.md',),'accessibility':('fidelity.md',),'technical':('fidelity.md',)}
+ROLE_FILES={'builder':GUIDE/'builder.md','extractor':GUIDE/'extractor.md','ui':GUIDE/'global'/'qa'/'ui-qa.md','content':GUIDE/'global'/'qa'/'content-qa.md','accessibility':GUIDE/'global'/'qa'/'accessibility-qa.md','technical':GUIDE/'global'/'qa'/'technical-qa.md'}
 # Platform coding standards are a second axis, orthogonal to role. MediChannel
 # (XHTML 1.0 Strict) and HTML5 are mutually exclusive: building under the wrong
-# ruleset means a rebuild, so a role-scoped read delivers the role file *and* the
-# project's platform bundle. Without this, guidelines/global.md names these files
-# by path while no agent ever receives them.
-PLATFORMS={
- 'medichannel':{'all':('xhtml-coding-rules','medichannel-delivery-standards','xhtml-vs-html5-reference'),'qa':('az-html-qa-guide',)},
- 'html5':{'all':('html-coding-rules',),'qa':()},
-}
+# ruleset means a rebuild, so a role-scoped read delivers the role file *and*
+# the channel's coding/QA bundle under guidelines/<channel>/. Without this,
+# guidelines/global/general-rules.md names these folders while no agent ever
+# receives them.
+PLATFORM_DIR={'medichannel':'medichannel','html5':'m3'}
 QAROLES={'ui','content','accessibility','technical'}
+def relkey(p):return p.relative_to(ROOT).as_posix()
 def platform_of(a):
  f=prj(a)/'project.json'
  v=(read(f).get('platform') if f.exists() else None) or None
- if v is not None and v not in PLATFORMS:bad(f"Project {a} records an unknown platform: {v}. Use one of: {', '.join(sorted(PLATFORMS))}.")
+ if v is not None and v not in PLATFORM_DIR:bad(f"Project {a} records an unknown platform: {v}. Use one of: {', '.join(sorted(PLATFORM_DIR))}.")
  return v
+def payload_spec(a,article_path,conversion=False):
+ # Native MediChannel builds are flat (identical contract to html5/M3) for
+ # the whole BUILDING/VERIFYING/REFINING lifecycle; the nested AEM/JCR tree
+ # is materialized separately (see materialize-medichannel.py), only at
+ # release or on demand. Only a channel-conversion run's own candidates
+ # (m3-to-medichannel direction, produced by convert-platform.py's genuine
+ # HTML5->XHTML structural transform) are nested from creation -- callers
+ # pass conversion=True for those, derived from run.json.convertedFrom.
+ plat=platform_of(a)
+ if plat is None:bad(f"Project {a} has no platform set; cannot determine deployable output shape.")
+ if plat!='medichannel' or not conversion:return {'kind':'flat'}
+ delivery=read(prj(a)/'project.json').get('delivery') or {}
+ missing=[k for k in ('contentRoot','damRoot','cssRoot') if not delivery.get(k)]
+ if missing:bad(f"Project {a} is missing delivery path field(s): {', '.join(missing)}. Set them with: kit.py set-platform {a} --platform medichannel --content-root <path> --dam-root <path> --css-root <path>.")
+ if not article_path:bad(f'Page has no articlePath recorded. Set it with: kit.py set-article-path {a} <page> --article-path <path>.')
+ return {'kind':'jcr','articlePath':article_path,**delivery}
+def is_conversion_run(s):
+ return (s.get('convertedFrom') or {}).get('direction')=='m3-to-medichannel'
+# Which guidelines/global/coding/*.md each role can act on. base-css-template.md
+# is builder-only: it is non-normative sample CSS full of comment banners, while
+# global/qa/technical-qa.md requires delivered CSS to carry zero comments, so
+# shipping it to reviewers manufactures false findings.
+CODING_FOR_ROLE={
+ 'builder':      {'assets-media.md','base-css-template.md','css.md','html.md'},
+ 'extractor':    {'assets-media.md'},
+ 'ui':           {'assets-media.md','css.md'},
+ 'content':      {'assets-media.md'},
+ 'accessibility':{'assets-media.md','html.md'},
+ 'technical':    {'assets-media.md','css.md','html.md'},
+}
+def coding_files(role):
+ sel=CODING_FOR_ROLE.get(role) or set()
+ return sorted((p for p in (GLOBAL/'coding').glob('*.md') if p.name in sel),key=relkey)
 def platform_files(role,plat):
- if not plat or role is None:return set()
- s=PLATFORMS[plat];return {n+'.md' for n in s['all']}|({n+'.md' for n in s['qa']} if role in QAROLES else set())
+ if not plat or role is None:return []
+ d=GUIDE/PLATFORM_DIR[plat]
+ out=[]
+ gr=d/'general-rules.md'
+ if gr.exists():out.append(gr)
+ out+=sorted((d/'coding').glob('*.md'),key=relkey)
+ if role in QAROLES:out+=sorted((d/'qa').glob('*.md'),key=relkey)
+ return out
 def gfiles(a,b,role=None):
- out=[GUIDE/'global.md'] if (GUIDE/'global.md').exists() else []
- keep=None if role is None else {ROLES[role]+'.md'}|platform_files(role,platform_of(a))
- if (GUIDE/'base').is_dir():out+=sorted(x for x in (GUIDE/'base').glob('*.md') if x.is_file() and (keep is None or x.name in keep))
+ gr=GLOBAL/'general-rules.md'
+ out=[gr] if gr.exists() else []
+ if role is None:
+  out+=sorted((p for p in GUIDE.rglob('*.md') if p.is_file() and p!=gr),key=relkey)
+ else:
+  out+=[p for p in (GLOBAL/n for n in ROLE_GLOBAL[role]) if p.exists()]
+  rf=ROLE_FILES[role]
+  if rf.exists():out.append(rf)
+  out+=coding_files(role)
+  out+=platform_files(role,platform_of(a))
  for d in (prj(a)/'guidelines',page(a,b)/'guidelines'):
   if d.is_dir():out+=sorted(x for x in d.glob('*.md') if x.is_file())
  return out
 def guidelines(a,b,o):
- role=o.get('role')
- if role is not None and role is not True and role not in ROLES:bad(f"Unknown role: {role}. Use one of: {', '.join(sorted(ROLES))}.")
- role=role if role in ROLES else None;prev=o.get('prev-hash')
+ role=o.get('role');prev=o.get('prev-hash')
+ if role is True:bad(f"guidelines --role requires a value. Use one of: {', '.join(sorted(ROLE_FILES))}.")
+ if isinstance(role,list):bad('guidelines accepts a single --role.')
+ if role is not None and role not in ROLE_FILES:bad(f"Unknown role: {role}. Use one of: {', '.join(sorted(ROLE_FILES))}.")
  g,_,h=snapshot(a,b,role)
  if prev and prev==h:cp=gcache(a,role,h);return f"GUIDELINE_CACHE_HIT\nhash: {h}\npath: {str(cp)}"
  return g
 def snapshot(a,b,role=None):
  plat=platform_of(a)
- body=['# Effective guideline snapshot','',f"Role scope: {role or 'all'}.",f"Platform: {plat or 'not set'}.",'Resolved in precedence order: global, base, project, page. Later rules override','earlier rules only where they address the same requirement explicitly.','']
- if role is not None and not plat:body+=['> **Warning:** no platform is set for this project, so no platform coding','> standards are included below. The rules named in the Platform guidelines','> section of `guidelines/global.md` are NOT part of this snapshot. Set the','> platform with `kit.py set-platform <project> --platform <name>` and re-read.','']
+ body=['# Effective guideline snapshot','',f"Role scope: {role or 'all'}.",f"Platform: {plat or 'not set'}.",'Resolved in precedence order: global, channel, project, page. Later rules override','earlier rules only where they address the same requirement explicitly.','']
+ if role is not None and not plat:body+=['> **Warning:** no platform is set for this project, so no channel coding','> standards are included below. The rules named in the Channels section of','> `guidelines/global/general-rules.md` are NOT part of this snapshot. Set the','> platform with `kit.py set-platform <project> --platform <name>` and re-read.','']
  srcs=[]
  for f in gfiles(a,b,role):
-  x=f.read_text(encoding='utf8');rel=f.relative_to(ROOT).as_posix()
+  x=f.read_text(encoding='utf-8-sig');rel=f.relative_to(ROOT).as_posix()
   srcs.append({'path':rel,'sha256':hashlib.sha256(x.encode()).hexdigest()})
   body+=[f'## {rel}','',x.strip(),'']
- if not srcs:bad('No guideline sources resolved; a run requires at least guidelines/global.md.')
+ if not srcs:bad('No guideline sources resolved; a run requires at least guidelines/global/general-rules.md.')
  g='\n'.join(body)+'\n';h=hashlib.sha256(g.encode()).hexdigest();cp=gcache(a,role,h)
- if not cp.exists():cp.write_text(g,encoding='utf8')
+ if not cp.exists():
+  cp.write_text(g,encoding='utf8')
+  # One live snapshot per role scope: a stale sibling can only ever be wrong
+  # content, and nothing resolves it except a --prev-hash that no longer matches.
+  for old in cp.parent.glob(f"{role or 'all'}-*.md"):
+   if old!=cp:old.unlink()
  return g,srcs,h
 def newrun(a,b,o):
  d=require_page(a,b);p=read(d/'page.json');c=o.get('source') or p.get('currentSourceId')
  # Platform is confirmed at ticket intake: MediChannel and HTML5 standards are
  # mutually exclusive, so a run started without one would build against no
  # coding standard at all.
- if not platform_of(a):bad(f"Project {a} has no platform. Confirm it at intake and set it with: kit.py set-platform {a} --platform <{'|'.join(sorted(PLATFORMS))}>")
+ if not platform_of(a):bad(f"Project {a} has no platform. Confirm it at intake and set it with: kit.py set-platform {a} --platform <{'|'.join(sorted(PLATFORM_DIR))}>")
  if not c:bad('No ready source is selected. Extract and mark a source READY first.')
  s=read(src(a,b,c)/'source.json')
  if s['status']!='READY':bad(f"Source {c} is {s['status']}, not READY.")
  i=numbered(d/'runs','run');r=run(a,b,i)
- for x in ('candidates','generated/images','visual','qa'):(r/x).mkdir(parents=True,exist_ok=True)
+ for x in ('candidates','generated','visual','qa'):(r/x).mkdir(parents=True,exist_ok=True)
  t=now();g,gs,h=snapshot(a,b);(r/'effective-guidelines.md').write_text(g,encoding='utf8');write(r/'run.json',{'id':i,'status':'CREATED','sourceId':c,'sourceExtractionMode':s.get('extractionMode','FULL'),'baseSourceId':s.get('baseSourceId'),'previousRunId':p.get('currentRunId'),'startedAt':t,'completedAt':None,'guidelineSnapshot':{'sources':gs,'sha256':h},'repair':{'round':0,'maxRounds':3},'candidates':[],'events':[{'at':t,'type':'created','sourceId':c}],'error':None});update(d/'page.json',lambda x:{**x,'status':'BUILDING','currentRunId':i,'updatedAt':t});active(project=a,page=b,run=i,round=0,status='CREATED',candidate=None,task=None);return {'projectId':a,'pageId':b,'runId':i,'sourceId':c,'root':str(r),'guidelineSnapshot':{'sources':[x['path'] for x in gs]}}
+def newconversionrun(a,b,o):
+ # A conversion run is an ordinary run (same run.json status machine) whose
+ # BUILDING phase transforms an accepted candidate from another platform's
+ # page instead of extracting fresh from Figma. Reuses newrun()'s scaffold
+ # entirely; only a convertedFrom provenance field is added afterward.
+ direction=str(o.get('direction') or '')
+ if direction not in ('m3-to-medichannel','medichannel-to-m3'):bad('new-conversion-run requires --direction m3-to-medichannel|medichannel-to-m3.')
+ to_plat='medichannel' if direction.endswith('medichannel') else 'html5'
+ plat=platform_of(a)
+ if plat!=to_plat:bad(f"Target project {a} has platform {plat or '<none>'}, but --direction {direction} targets {to_plat}.")
+ fa=safe(o.get('from-project'),'source project identifier');fb=safe(o.get('from-page'),'source page identifier');fr=rid(o.get('from-run'))
+ fc=o.get('from-candidate')
+ if not fc or fc is True:bad('new-conversion-run requires --from-candidate <id>.')
+ fc=safe(fc,'source candidate identifier')
+ fs=read(run(fa,fb,fr)/'run.json')
+ if fs.get('acceptedCandidateId')!=fc:bad(f"{fc} is not the accepted candidate of {fa}/{fb}/{fr}.")
+ cs=convertsource(a,b,{'from-project':fa,'from-page':fb,'from-source':fs['sourceId']})
+ rv=newrun(a,b,{'source':cs['sourceId']});i=rv['runId']
+ meta={'project':fa,'page':fb,'run':fr,'candidate':fc,'direction':direction}
+ update(run(a,b,i)/'run.json',lambda x:{**x,'convertedFrom':meta})
+ return {**rv,'convertedFrom':meta}
 def candidate(a,b,c,o):
  s=mutable(a,b,c);r=run(a,b,c);i=numbered(r/'candidates','candidate');d=r/'candidates'/i;d.mkdir(parents=True);n=int(o.get('round',s['repair']['round']))
  if n<0 or n>s['repair']['maxRounds']:bad('Candidate round is outside the configured repair range.')
- if str(o.get('from-accepted','')).lower() in ('true','1') or o.get('from-accepted') is True:
+ from_accepted=str(o.get('from-accepted','')).lower() in ('true','1') or o.get('from-accepted') is True
+ convertedfrom=None
+ if from_accepted:
+  if o.get('from-external'):bad('--from-accepted cannot be combined with --from-external.')
   if not s.get('acceptedCandidateId'):bad('Cannot seed from accepted output because no candidate has been accepted.')
   cp(r/'generated',d)
- (d/'images').mkdir(exist_ok=True);t=now();write(d/'candidate.json',{'id':i,'projectId':a,'pageId':b,'runId':c,'sourceId':s['sourceId'],'baseSourceId':s.get('baseSourceId'),'round':n,'scope':o.get('scope','full-page'),'status':'PENDING','createdAt':t,'evaluatedAt':None,'metrics':None,'reasons':[]})
+ elif o.get('from-external'):
+  # Seeds a candidate from another page's accepted output for a channel-
+  # conversion run. The frozen source payload lives in a subfolder so it
+  # never collides with this candidate's own (target-shaped) output tree.
+  xa,xb,xr,xc=extref(o['from-external']);xrun=read(run(xa,xb,xr)/'run.json')
+  if xrun.get('acceptedCandidateId')!=xc:bad(f"{xc} is not the accepted candidate of {xa}/{xb}/{xr}.")
+  xd=run(xa,xb,xr)/'generated'
+  if not xd.exists():bad(f'No accepted output found at {xa}/{xb}/{xr}/generated.')
+  cp(xd,d/'_conversion-input');convertedfrom={'project':xa,'page':xb,'run':xr,'candidate':xc}
+ spec=payload_spec(a,read(page(a,b)/'page.json').get('articlePath'),is_conversion_run(s))
+ if spec['kind']=='flat':(d/'images').mkdir(exist_ok=True)
+ else:(d/jcr_paths(spec)[1]).mkdir(parents=True,exist_ok=True)
+ t=now();cand={'id':i,'projectId':a,'pageId':b,'runId':c,'sourceId':s['sourceId'],'baseSourceId':s.get('baseSourceId'),'round':n,'scope':o.get('scope','full-page'),'status':'PENDING','createdAt':t,'evaluatedAt':None,'metrics':None,'reasons':[]}
+ if convertedfrom:cand['convertedFrom']=convertedfrom
+ write(d/'candidate.json',cand)
  update(r/'run.json',lambda x:{**x,'candidates':[ *x['candidates'],{'id':i,'status':'PENDING','createdAt':t,'round':n,'scope':o.get('scope','full-page'),'sourceId':x['sourceId']}],'events':[ *x['events'],{'at':t,'type':'candidate-created','candidateId':i,'round':n,'scope':o.get('scope','full-page')} ]});active(project=a,page=b,run=c,candidate=i,round=n,task=o.get('scope','full-page'));return {'projectId':a,'pageId':b,'runId':c,'candidateId':i,'root':str(d)}
 def result(a,b,c,i,o):
  s=mutable(a,b,c);r=run(a,b,c);d=r/'candidates'/i;f=d/'candidate.json';st=str(o.get('status','')).upper()
  if st not in {'ACCEPTED','REJECTED'}:bad('candidate-result requires --status accepted|rejected.')
- payload(d,'Candidate deployable output',ignore=('candidate.json',))
+ spec=payload_spec(a,read(page(a,b)/'page.json').get('articlePath'),is_conversion_run(s));payload(d,'Candidate deployable output',spec)
  m=read(Path(o['metrics'])) if o.get('metrics') else None; static=read(Path(o['static'])) if o.get('static') else None; browser=read(Path(o['browser'])) if o.get('browser') else None
  if st=='ACCEPTED' and m and m.get('status')=='ERROR':bad(f"Visual evidence is unavailable, so this candidate cannot be accepted: {m.get('reason') or 'comparison error'}. Fix the evidence and re-measure; do not treat it as a visual failure.")
  if st=='ACCEPTED' and any(not q or q.get('status')!='PASS' for q in (m,static,browser)):bad('Accepted candidates require passing static, browser, and visual reports.')
  t=now();x=read(f);x.update(status=st,evaluatedAt=t,metrics=m,evidence={'static':static,'browser':browser},reasons=[o['reason']] if o.get('reason') else []);write(f,x)
- if st=='ACCEPTED':rm(r/'generated');cp(d,r/'generated');(r/'generated'/'candidate.json').unlink(missing_ok=True);rm(r/'qa');(r/'qa').mkdir()
+ if st=='ACCEPTED':rm(r/'generated');cp(d,r/'generated');(r/'generated'/'candidate.json').unlink(missing_ok=True);rm(r/'generated'/'structural-check');rm(r/'generated'/'_conversion-input');rm(r/'qa');(r/'qa').mkdir()
  def fn(z):
   q={'id':i,'status':st,'evaluatedAt':t,'round':z['repair']['round'],'metrics':m,'evidence':{'static':static.get('status') if static else None,'browser':browser.get('status') if browser else None},'reasons':x['reasons'],'sourceId':z['sourceId']};z['candidates']=[{**v,**q} if v['id']==i else v for v in z['candidates']];z['acceptedCandidateId']=i if st=='ACCEPTED' else z.get('acceptedCandidateId');z['events'].append({'at':t,'type':'candidate','candidateId':i,'status':st});return z
  update(r/'run.json',fn);return {'projectId':a,'pageId':b,'runId':c,'candidateId':i,'status':st,'acceptedCandidateId':i if st=='ACCEPTED' else s.get('acceptedCandidateId')}
@@ -480,8 +686,91 @@ def release(a,b,c):
  s=mutable(a,b,c);r=run(a,b,c)
  if s['status']!='VERIFYING':bad(f"Run must be VERIFYING before release; current status is {s['status']}.")
  if summary(a,b,c)['status']!='PASS' or not (r/'qa/release-verifier.json').exists():bad('Cannot release without passing QA and a recorded release-verifier verdict.')
- payload(r/'generated','Generated output')
+ payload(r/'generated','Generated output',payload_spec(a,read(page(a,b)/'page.json').get('articlePath'),is_conversion_run(s)))
  d=page(a,b);i=numbered(d/'releases','v');target=d/'releases'/i;cp(r/'generated',target/'site');cp(r/'effective-guidelines.md',target/'effective-guidelines.md');cp(r/'qa',target/'qa');checks={x.relative_to(target/'site').as_posix():hashlib.sha256(x.read_bytes()).hexdigest() for x in (target/'site').rglob('*') if x.is_file()};write(target/'release.json',{'releaseId':i,'runId':c,'sourceId':s['sourceId'],'createdAt':now(),'checksums':checks});rm(d/'current');cp(target/'site',d/'current');done=transition(a,b,c,'COMPLETED',{'releaseId':i});cp(r/'run.json',target/'run.json');update(d/'page.json',lambda x:{**x,'status':'COMPLETED','currentRunId':c,'currentReleaseId':i,'updatedAt':done['completedAt']});return {'projectId':a,'pageId':b,'runId':c,'releaseId':i,'release':str(target)}
+QA_PDF=('content','visual-cutoff')
+def newpdfexport(a,b,c,o):
+ # PDF export is a side artifact attached to a run, not a run-state
+ # transition, so it must work whether the run is terminal or not: it never
+ # touches run.json/transition(), only reads acceptedCandidateId from it.
+ s=read(run(a,b,c)/'run.json');fc=o.get('from-candidate')
+ if not fc or fc is True:bad('new-pdf-export requires --from-candidate <id>.')
+ if s.get('acceptedCandidateId')!=fc:bad(f"{fc} is not the accepted candidate of run {c}.")
+ pd=run(a,b,c)/'pdf';i=numbered(pd,'pdf');d=pd/i;d.mkdir(parents=True)
+ t=now();write(d/'pdf.json',{'id':i,'projectId':a,'pageId':b,'runId':c,'sourceCandidateId':fc,'status':'PENDING','createdAt':t,'completedAt':None})
+ return {'projectId':a,'pageId':b,'runId':c,'pdfId':i,'root':str(d)}
+def pdfresult(a,b,c,i,o):
+ d=run(a,b,c)/'pdf'/i;f=d/'pdf.json'
+ if not f.exists():bad(f'PDF export does not exist: {i}')
+ st=str(o.get('status','')).upper()
+ if st not in ('READY','FAILED'):bad('pdf-result requires --status ready|failed.')
+ meta=read(Path(o['file'])) if o.get('file') else {}
+ t=now();update(f,lambda x:{**x,**meta,'status':st,'completedAt':t});return {'projectId':a,'pageId':b,'runId':c,'pdfId':i,'status':st}
+def pdfqarecord(a,b,c,i,k,o):
+ d=run(a,b,c)/'pdf'/i
+ if k not in QA_PDF:bad(f"Unknown PDF QA kind: {k}. Use one of: {', '.join(QA_PDF)}.")
+ if not (d/'pdf.json').exists():bad(f'PDF export does not exist: {i}')
+ q=read(Path(o['file']))
+ if q.get('kind')!=k or q.get('status') not in {'PASS','FAIL','UNAVAILABLE'} or not isinstance(q.get('findings'),list):bad(f'QA file kind {q.get("kind","<missing>")} does not match {k}.')
+ q.update(runId=c,pdfId=i);q.setdefault('checkedAt',now());(d/'qa').mkdir(exist_ok=True);write(d/'qa'/f'{k}.json',q)
+ return {'projectId':a,'pageId':b,'runId':c,'pdfId':i,'kind':k,'status':q['status']}
+def pdfqasummary(a,b,c,i):
+ d=run(a,b,c)/'pdf'/i;q={k:read(d/'qa'/f'{k}.json') if (d/'qa'/f'{k}.json').exists() else None for k in QA_PDF}
+ missing=[k for k in QA_PDF if not q[k]];failed=[k for k in QA_PDF if q[k] and q[k].get('status')!='PASS']
+ v={'status':'PASS' if not(missing or failed) else 'FAIL','checkedAt':now(),'required':list(QA_PDF),'missing':missing,'failed':failed,'checks':{k:q[k].get('status') if q[k] else 'MISSING' for k in QA_PDF}}
+ write(d/'qa/summary.json',v);return v
+def pdfrelease(a,b,c,i):
+ d=run(a,b,c)/'pdf'/i;f=d/'pdf.json'
+ if not f.exists():bad(f'PDF export does not exist: {i}')
+ if pdfqasummary(a,b,c,i)['status']!='PASS':bad('Cannot release a PDF without passing its QA gate.')
+ srcpdf=d/'index.pdf'
+ if not srcpdf.exists():bad(f'PDF export {i} has no index.pdf.')
+ pg=page(a,b);cp(srcpdf,pg/'current'/'index.pdf');relid=read(pg/'page.json').get('currentReleaseId')
+ if relid:cp(srcpdf,pg/'releases'/relid/'pdf'/'index.pdf')
+ update(f,lambda x:{**x,'releasedAt':now()});return {'projectId':a,'pageId':b,'runId':c,'pdfId':i,'released':True,'releaseId':relid}
+def require_medichannel_native(a,s,verb):
+ # Shared guard for both materialization entry points: the nested AEM/JCR
+ # tree is only ever an additional artifact derived from a *native* flat
+ # MediChannel build. A channel-conversion run's candidates/generated/site
+ # are already nested (produced by convert-platform.py) -- materializing
+ # them again makes no sense and must not be attempted.
+ if is_conversion_run(s):bad(f"This run is a channel-conversion run; its output is already nested. {verb} only applies to native MediChannel builds.")
+ plat=platform_of(a)
+ if plat!='medichannel':bad(f"Project {a} has platform {plat or '<none>'}; {verb} only applies to medichannel projects.")
+def newmaterialization(a,b,c,o):
+ # Materialization is a side artifact attached to a run, not a run-state
+ # transition -- mirrors new-pdf-export exactly, so it works whether the run
+ # is terminal or not and never touches run.json/transition().
+ s=read(run(a,b,c)/'run.json');require_medichannel_native(a,s,'new-materialization')
+ fc=o.get('from-candidate')
+ if fc is True:bad('--from-candidate requires a value.')
+ if fc:
+  srcdir=run(a,b,c)/'candidates'/str(fc)
+  if not srcdir.exists():bad(f'Candidate does not exist: {fc}')
+ else:
+  srcdir=run(a,b,c)/'generated'
+  if not srcdir.exists():bad(f'No accepted output found at {a}/{b}/{c}/generated.')
+ article_path=read(page(a,b)/'page.json').get('articlePath')
+ delivery=require_delivery(read(prj(a)/'project.json').get('delivery') or {})
+ md=run(a,b,c)/'materialized';i=numbered(md,'materialized');d=md/i;out=d/'jcr';out.mkdir(parents=True)
+ t=now();write(d/'materialize.json',{'id':i,'projectId':a,'pageId':b,'runId':c,'sourceCandidateId':fc or None,'status':'PENDING','createdAt':t,'completedAt':None})
+ return {'projectId':a,'pageId':b,'runId':c,'materializationId':i,'root':str(out),'input':str(srcdir),'articlePath':article_path,'delivery':delivery}
+def materializationresult(a,b,c,i,o):
+ d=run(a,b,c)/'materialized'/i;f=d/'materialize.json'
+ if not f.exists():bad(f'Materialization does not exist: {i}')
+ st=str(o.get('status','')).upper()
+ if st not in ('READY','FAILED'):bad('materialization-result requires --status ready|failed.')
+ meta=read(Path(o['file'])) if o.get('file') else {}
+ t=now();update(f,lambda x:{**x,**meta,'status':st,'completedAt':t});return {'projectId':a,'pageId':b,'runId':c,'materializationId':i,'status':st}
+def releasematerialize(a,b,c):
+ s=read(run(a,b,c)/'run.json');require_medichannel_native(a,s,'release-materialize')
+ d=page(a,b)/'releases'
+ target=next((x for x in sorted(d.iterdir()) if x.is_dir() and read(x/'release.json').get('runId')==c),None) if d.exists() else None
+ if target is None:bad(f'No release found for run {c}. Run kit.py release first.')
+ article_path=read(page(a,b)/'page.json').get('articlePath')
+ delivery=require_delivery(read(prj(a)/'project.json').get('delivery') or {})
+ out=target/'jcr';rm(out);out.mkdir(parents=True)
+ return {'projectId':a,'pageId':b,'runId':c,'releaseId':target.name,'root':str(out),'input':str(target/'site'),'articlePath':article_path,'delivery':delivery}
 def resolve(a,b,c,o):
  f=src(a,b,c)/'source.json';s=read(f)
  if s['status']!='EXTRACTING':bad(f"Source {c} is immutable because it is {s['status']}.")
@@ -524,7 +813,8 @@ def main():
  if cmd=='help':out=help()
  elif cmd=='init-project':out=init_project(safe(p[0],'project identifier'),p[1] if len(p)>1 else None,o)
  elif cmd=='set-platform':out=setplatform(safe(p[0],'project identifier'),o)
- elif cmd=='init-page':out=init_page(safe(p[0],'project identifier'),safe(p[1],'page identifier'),p[2] if len(p)>2 else None)
+ elif cmd=='init-page':out=init_page(safe(p[0],'project identifier'),safe(p[1],'page identifier'),p[2] if len(p)>2 else None,o)
+ elif cmd=='set-article-path':out=setarticlepath(safe(p[0],'project identifier'),safe(p[1],'page identifier'),o)
  elif cmd=='new-source':out=new_source(p[0],p[1],o)
  elif cmd=='source-call':out=call(p[0],p[1],p[2],o)
  elif cmd=='source-budget':out=budget(p[0],p[1],p[2])
@@ -536,6 +826,8 @@ def main():
  elif cmd=='source-delta':out=sourcedelta(p[0],p[1],p[2])
  elif cmd=='source-patch':out=patch(p[0],p[1],p[2],o)
  elif cmd=='new-run':out=newrun(p[0],p[1],o)
+ elif cmd=='convert-source':out=convertsource(p[0],p[1],o)
+ elif cmd=='new-conversion-run':out=newconversionrun(p[0],p[1],o)
  elif cmd=='transition':out=transition(p[0],p[1],p[2],p[3])
  elif cmd=='new-candidate':out=candidate(p[0],p[1],p[2],o)
  elif cmd=='candidate-result':out=result(p[0],p[1],p[2],p[3],o)
@@ -543,6 +835,14 @@ def main():
  elif cmd=='qa-summary':out=summary(p[0],p[1],p[2])
  elif cmd=='release-check':out=releasecheck(p[0],p[1],p[2],o)
  elif cmd=='release':out=release(p[0],p[1],p[2])
+ elif cmd=='new-pdf-export':out=newpdfexport(p[0],p[1],p[2],o)
+ elif cmd=='pdf-result':out=pdfresult(p[0],p[1],p[2],p[3],o)
+ elif cmd=='pdf-qa-record':out=pdfqarecord(p[0],p[1],p[2],p[3],p[4],o)
+ elif cmd=='pdf-qa-summary':out=pdfqasummary(p[0],p[1],p[2],p[3])
+ elif cmd=='pdf-release':out=pdfrelease(p[0],p[1],p[2],p[3])
+ elif cmd=='new-materialization':out=newmaterialization(p[0],p[1],p[2],o)
+ elif cmd=='materialization-result':out=materializationresult(p[0],p[1],p[2],p[3],o)
+ elif cmd=='release-materialize':out=releasematerialize(p[0],p[1],p[2])
  elif cmd=='resolve-question':out=resolve(p[0],p[1],p[2],o)
  elif cmd=='source-fail':out=srcfail(p[0],p[1],p[2],o.get('message'))
  elif cmd=='next-repair':out=nextrepair(p[0],p[1],p[2])

@@ -8,18 +8,24 @@ MCP and every required QA gate.
 
 ## Template and section mapping
 
-- Treat the supplied delivery template as the structural authority and as
-  read-only. Build and test in the current candidate, then transfer only
-  finished code into the template's designated editable region.
+- The build/repair/QA candidate is flat (`index.html`/`base.css`/`page.css`/
+  `images/`, same contract as HTML5/M3) — build and test entirely there. The
+  supplied delivery template
+  (`delivery-templates/medichannel/<template>/shell.html`, read-only
+  structural authority) only enters the picture at materialization
+  (`materialize-medichannel.py`, at release or on demand), which transfers
+  the finished flat output into the template's designated editable region
+  automatically. See `medichannel-materialization.md`. This does not apply to
+  a channel-conversion run, whose candidates are already nested — see
+  `channel-conversion.md`.
 - Map normalized Figma sections to the closest template component by semantic
   role and keep source order. Omit optional template sections absent from the
   source; never emit placeholders.
 - When the source has no exact template equivalent, adapt the closest semantic
   component and record the deviation in the builder handoff or run report.
-- Keep each section independently replaceable so a repair can remain scoped to
-  the failed section.
-- Keep global element and token rules in `base.css` and page/component rules in
-  `page.css`, matching the candidate and release artifact contract.
+- Section independence and the `base.css`/`page.css` split are guideline rules
+  (BLD, CSS-017, CSS-018) already delivered to the builder — do not restate them
+  in the handoff.
 
 ## Content adaptation
 
@@ -32,8 +38,6 @@ MCP and every required QA gate.
 - For a content image, derive useful alternative text from the nearest
   preceding text node in the same parent container, preferring the nearest
   `h3` or `h4`. Small decorative SVG component instances use `alt=""`.
-- Use a Figma gradient value directly as a CSS `background`. Do not promote a
-  one-off gradient into a color token.
 
 ## MediChannel component conventions
 
@@ -58,11 +62,7 @@ MCP and every required QA gate.
 
 ## Token naming
 
-- Promote repeated source colors into `:root` custom properties. Prefer
-  `--color-white`, `--color-black`, `--color-text`, `--color-bg`,
-  `--color-primary`, and `--color-secondary` when the source context supports
-  those meanings.
-- Give remaining colors descriptive contextual names such as
-  `--color-accent-red` or `--color-navy`. Use numbered fallback names only when
-  the source provides no defensible semantic name.
-- Keep gradients as direct background values rather than color variables.
+- Token naming is owned by `guidelines/global/coding/base-css-template.md` and
+  CSS-006/CSS-007, which the builder already receives. The only addition here:
+  keep a Figma gradient as a direct `background` value, never promoted into a
+  colour token.

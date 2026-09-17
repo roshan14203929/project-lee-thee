@@ -78,13 +78,23 @@ pytest
 
 ## Configuration
 
-- `guidelines/global.md`: quality gates and workflow invariants.
-- `guidelines/base/*.md`: role-specific defaults.
+- `guidelines/global/general-rules.md`: channel selection and the channel matrix. Delivered to every role, first in precedence.
+- `guidelines/global/fidelity.md`: shared content/UI/accessibility bar. Delivered to the builder and the four QA roles.
+- `guidelines/global/orchestrator.md`: run immutability, QA gate thresholds, candidate acceptance, release. Delivered to **no** role — the orchestrator learns these from the skill and `kit.py` enforces them. Present in a run's snapshot as release evidence.
+- `guidelines/global/coding/*.md`: channel-agnostic coding baseline. Each role receives only the files it can act on (`CODING_FOR_ROLE` in `scripts/kit.py`); `base-css-template.md` is builder-only.
+- `guidelines/global/qa/*.md`: one file per QA role.
+- `guidelines/medichannel/` / `guidelines/m3/`: channel deltas only (`general-rules.md`, `coding/*.md`, `qa/*.md`).
+- `guidelines/builder.md`, `guidelines/extractor.md`: agent-role files.
 - `projects/<project>/guidelines/*.md`: project deltas.
 - `projects/<project>/pages/<page>/guidelines/*.md`: page deltas.
 
-Resolution order is global, base, project, then page. Every run stores the
+Resolution order is global, channel, project, then page. Every run stores the
 effective snapshot and its hash.
+
+Read guidelines with `kit.py guidelines <project> <page> --role <role>`, never by
+opening `guidelines/` directly: the role scope is what keeps one channel's rules
+out of the other's build. `--role` must carry a value — a bare or repeated flag
+is rejected rather than falling back to an unscoped read.
 
 The controller also enforces passing static/browser/visual evidence before a
 candidate can be accepted, stamps QA with the accepted candidate ID, clears QA

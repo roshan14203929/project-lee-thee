@@ -226,3 +226,103 @@ def test_verify_output_never_writes_its_report_into_the_payload(tmp_path) -> Non
         cwd=root, check=False, capture_output=True, text=True)
     assert bad.returncode != 0
     assert "must not be written inside" in (bad.stderr + bad.stdout)
+
+
+def _medichannel_project(project_id: str, page_id: str, article_path: str) -> None:
+    kit(
+        "init-project", project_id, "Verify output MediChannel test", "--platform", "medichannel",
+        "--content-root", "Test/Region/048-MediChannel/ja/jp",
+        "--dam-root", "test-region",
+        "--css-root", "test-region/css",
+    )
+    kit("init-page", project_id, page_id, "Home", "--article-path", article_path)
+
+
+def test_verify_output_validates_a_medichannel_jcr_payload_with_explicit_flags(project_factory, tmp_path) -> None:
+    # A native MediChannel candidate now auto-detects flat (see
+    # test_verify_output.py), so a hand-built nested JCR payload -- e.g. a
+    # materialized artifact, which has no candidate.json/runId of its own --
+    # is validated with the explicit --platform flags, per commands.md.
+    import subprocess, sys as _sys
+    repo_root = Path(__file__).resolve().parents[1]
+    project_id, page_id = "verify-output-medichannel-test", "home"
+    project_factory(project_id)
+    article_path = "test/product/example_article01"
+    _medichannel_project(project_id, page_id, article_path)
+
+    payload = tmp_path / "candidate-001"
+    html_rel = Path("content") / "Test/Region/048-MediChannel/ja/jp" / f"{article_path}.html"
+    css_dir = Path("etc") / "designs" / "code" / "test-region/css" / article_path
+    assets_rel = Path("content") / "dam" / "test-region" / article_path
+    payload.mkdir(parents=True, exist_ok=True)
+    write_json(payload / "candidate.json", {"id": "candidate-001", "projectId": project_id, "pageId": page_id})
+    (payload / html_rel).parent.mkdir(parents=True, exist_ok=True)
+    (payload / html_rel).write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">\n'
+        '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja" lang="ja"><head>'
+        '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />'
+        '<meta name="viewport" content="width=960" /><title>Home</title></head>'
+        '<body><div id="main" role="main"><h1>Hello</h1>'
+        '<img src="/content/dam/test-region/test/product/example_article01/hero.png" alt="" />'
+        '</div></body></html>', encoding="utf-8",
+    )
+    (payload / css_dir).mkdir(parents=True, exist_ok=True)
+    (payload / css_dir / "base.css").write_text(".cst-page{margin:0}", encoding="utf-8")
+    (payload / css_dir / "page.css").write_text(".cst-page h1{display:block}", encoding="utf-8")
+    (payload / assets_rel).mkdir(parents=True, exist_ok=True)
+    (payload / assets_rel / "hero.png").write_text("fake-png", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            _sys.executable, str(repo_root / "scripts" / "verify-output.py"), "--root", str(payload),
+            "--platform", "medichannel", "--content-root", "Test/Region/048-MediChannel/ja/jp",
+            "--dam-root", "test-region", "--css-root", "test-region/css", "--article-path", article_path,
+        ],
+        cwd=repo_root, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout)
+    assert report["status"] == "PASS", report["findings"]
+
+
+def test_verify_output_flags_a_stray_file_outside_the_jcr_subtrees(project_factory, tmp_path) -> None:
+    import subprocess, sys as _sys
+    repo_root = Path(__file__).resolve().parents[1]
+    project_id, page_id = "verify-output-medichannel-stray-test", "home"
+    project_factory(project_id)
+    article_path = "test/product/example_article02"
+    _medichannel_project(project_id, page_id, article_path)
+
+    payload = tmp_path / "candidate-001"
+    html_rel = Path("content") / "Test/Region/048-MediChannel/ja/jp" / f"{article_path}.html"
+    css_dir = Path("etc") / "designs" / "code" / "test-region/css" / article_path
+    assets_rel = Path("content") / "dam" / "test-region" / article_path
+    payload.mkdir(parents=True, exist_ok=True)
+    write_json(payload / "candidate.json", {"id": "candidate-001", "projectId": project_id, "pageId": page_id})
+    (payload / html_rel).parent.mkdir(parents=True, exist_ok=True)
+    (payload / html_rel).write_text(
+        '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">\n'
+        '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja" lang="ja"><head>'
+        '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />'
+        '<meta name="viewport" content="width=960" /><title>Home</title></head>'
+        '<body><div id="main" role="main"><h1>Hello</h1></div></body></html>', encoding="utf-8",
+    )
+    (payload / css_dir).mkdir(parents=True, exist_ok=True)
+    (payload / css_dir / "base.css").write_text(".cst-page{margin:0}", encoding="utf-8")
+    (payload / css_dir / "page.css").write_text(".cst-page h1{display:block}", encoding="utf-8")
+    (payload / assets_rel).mkdir(parents=True, exist_ok=True)
+    (payload / "stray-file.txt").write_text("should not be here", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            _sys.executable, str(repo_root / "scripts" / "verify-output.py"), "--root", str(payload),
+            "--platform", "medichannel", "--content-root", "Test/Region/048-MediChannel/ja/jp",
+            "--dam-root", "test-region", "--css-root", "test-region/css", "--article-path", article_path,
+        ],
+        cwd=repo_root, capture_output=True, text=True,
+    )
+    assert result.returncode != 0
+    report = json.loads(result.stdout)
+    assert report["status"] == "FAIL"
+    assert any("stray-file.txt" in f["message"] for f in report["findings"])

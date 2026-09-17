@@ -1,5 +1,12 @@
 # Artifact contract
 
+**Flat payload** — `project.json.platform` is `html5`, **or** `medichannel`
+for a native build (any run whose `run.json` has no `convertedFrom`, or a
+`convertedFrom.direction` other than `m3-to-medichannel`). Native MediChannel
+builds/repairs/QA in exactly this shape, identical to HTML5/M3, through
+`BUILDING`/`VERIFYING`/`REFINING`/`release` — see `medichannel-materialization.md`
+for how (and when) the nested AEM/JCR tree gets derived from it:
+
 ```text
 projects/<project>/
   project.json
@@ -23,6 +30,7 @@ projects/<project>/
       css-map.json
       candidates/candidate-###/
         candidate.json
+        _conversion-input/*            (conversion candidates only, see channel-conversion.md)
         images/*
         index.html
         base.css
@@ -40,11 +48,21 @@ projects/<project>/
       qa/summary.json
       qa/release-verifier.json
       qa/repair-round-*.json
+      pdf/pdf-###/                     (see pdf-export.md)
+        pdf.json
+        index.pdf
+        qa/content.json
+        qa/visual-cutoff.json
+        qa/summary.json
+      materialized/materialized-###/   (MediChannel only, see medichannel-materialization.md)
+        materialize.json
+        jcr/                            (nested AEM/JCR tree, see below)
     current/
       images/*
       index.html
       base.css
       page.css
+      index.pdf                        (only once a PDF export has been released)
     releases/v-###/
       site/
         images/*
@@ -54,7 +72,37 @@ projects/<project>/
       run.json
       effective-guidelines.md
       qa/*
+      pdf/index.pdf                    (only when this release already existed when the PDF was released)
+      jcr/                             (MediChannel only, see below; produced by release-materialize)
+      jcr-materialization-report.json  (MediChannel only)
       release.json
+```
+
+**Nested AEM/JCR tree** — `{contentRoot}`, `{damRoot}`, `{cssRoot}` come from
+`project.json.delivery`, `{articlePath}` from `page.json.articlePath` (see
+`commands.md`). This shape appears in two, unrelated places, and only for
+`medichannel` projects — never confuse them (see `channel-conversion.md` vs
+`medichannel-materialization.md`):
+
+- As the **entire** `candidates/candidate-###/`, `generated/`, `current/`,
+  and `releases/v-###/site/` payload, but **only** for a channel-conversion
+  run (`run.json.convertedFrom.direction == "m3-to-medichannel"`) — its
+  candidates are genuinely nested from creation, produced by
+  `convert-platform.py`'s real HTML5-\>XHTML structural transform.
+- As the **additional**, separate `materialized/materialized-###/jcr/` and
+  `releases/v-###/jcr/` artifacts for a *native* MediChannel run — derived
+  from the flat payload above by `materialize-medichannel.py`, never a
+  replacement for it.
+
+```text
+    (candidate-###/, generated/, current/, releases/v-###/site/ for a
+     channel-conversion run; or materialized-###/jcr/, releases/v-###/jcr/
+     for a native run's materialized artifact)
+      candidate.json                                 (candidate dir only)
+      content/{contentRoot}/{articlePath}.html
+      content/dam/{damRoot}/{articlePath}/*           (image assets)
+      etc/designs/code/{cssRoot}/{articlePath}/base.css
+      etc/designs/code/{cssRoot}/{articlePath}/page.css
 ```
 
 ## Pattern map
@@ -92,8 +140,19 @@ Candidates record `projectId`, `pageId`, `runId`, `sourceId`, and optional
 `baseSourceId` for explicit provenance; they do not copy source extraction data.
 `candidate.json` is lifecycle metadata, not deployable output. Candidate,
 generated, current, and release site payloads contain exactly `images/`,
-`index.html`, `base.css`, and `page.css`; source snapshots continue to use
-`assets/` for immutable Figma exports.
+`index.html`, `base.css`, and `page.css` for HTML5/M3 and every native
+MediChannel run — the nested shape above only for a channel-conversion run's
+candidates; source snapshots continue to use `assets/` for immutable Figma
+exports.
+
+A source materialized by `convert-source` (see `channel-conversion.md`) and a
+run/candidate created via `new-conversion-run`/`new-candidate --from-external`
+additionally carry a `convertedFrom` object recording the originating
+project/page/run/candidate. A candidate seeded with `--from-external` also
+gets a `_conversion-input/` subdirectory holding the frozen source payload;
+like `candidate.json` and `structural-check/`, it is diagnostic input, not
+part of the deployable payload — `verify-output.py` and `candidate-result`'s
+copy into `generated/` both exclude it automatically.
 
 Write `spec/spec.json` with:
 
@@ -175,6 +234,12 @@ require `id`, `severity`, and `message`; add `section`, `evidence`, and
 orchestrator can group findings by locality mechanically instead of parsing
 prose. Valid statuses are `PASS`, `FAIL`, and `UNAVAILABLE`. Valid severities
 are `critical`, `high`, `medium`, and `low`.
+
+A PDF export (`pdf-export.md`) uses the same QA object shape for its two
+required kinds, `content` and `visual-cutoff`, recorded with `pdf-qa-record`
+against `runId`, `candidateId` (the accepted candidate the export was built
+from), and `pdfId` instead of just `runId`/`candidateId`. `pdf-qa-summary`
+mirrors `qa-summary`: `PASS` only when both kinds are present and passing.
 
 ## Deterministic evidence locations
 

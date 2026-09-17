@@ -400,8 +400,8 @@ def create_coding_qa():
 
     spacer(doc)
     section(doc, '4-2.  Coding Guideline Compliance')
-    note(doc, 'Reference: guidelines/base/xhtml-coding-rules.md + guidelines/base/medichannel-delivery-standards.md')
-    note(doc, 'Do NOT use html-coding-rules.md or /html-css-review for MediChannel \u2014 those are for 3rd Party (HTML5) only.')
+    note(doc, 'Reference: guidelines/medichannel/coding/xhtml-syntax.md + guidelines/medichannel/coding/deviations.md + guidelines/medichannel/general-rules.md')
+    note(doc, 'Do NOT use guidelines/m3/coding/html5-delta.md or /html-css-review for MediChannel \u2014 those are for 3rd Party (HTML5) only.')
 
     subsection(doc, 'XHTML document structure')
     check(doc, '<?xml version="1.0" encoding="UTF-8"?> present at line 1')

@@ -4,10 +4,10 @@ All four checks are mandatory and independently blocking.
 
 ## Content
 
-Mechanically run `verify-output.py` with the source content inventory, then
-have the content reviewer compare DOM/rendered content to Figma. Verify exact
-copy, labels, links, buttons, forms, numbers, legal text, image purpose,
-metadata, omissions, duplication, truncation, and fabricated content.
+Mechanically run `verify-output.py` with the source content inventory, then have
+the content reviewer compare DOM/rendered content to Figma. The checklist is
+`guidelines/global/qa/content-qa.md`, delivered to that reviewer — do not restate
+it in the handoff.
 
 ## UI
 
@@ -36,7 +36,7 @@ catastrophic clipping, but they are diagnostic rather than visual release
 gates unless the user or effective page guidelines explicitly require
 responsive behavior at those widths.
 
-Numeric thresholds come from `guidelines/global.md`. A numeric pass does not
+Numeric thresholds come from `guidelines/global/general-rules.md`. A numeric pass does not
 override an obvious structural or content mismatch.
 
 Use fixed-height screenshots (`--full-page false`) when Figma references have
@@ -54,16 +54,15 @@ dimensions and re-measure.
 
 ## Accessibility
 
-Check landmarks, single `h1`, heading order, names, labels, alt text, keyboard
-operation, focus order and visibility, reduced motion, hidden content, and
-native semantics. Record user impact and selector evidence.
+Checklist: `guidelines/global/qa/accessibility-qa.md`, delivered to the
+reviewer. Findings must record user impact, selector evidence, and the violated
+rule ID.
 
 ## Technical
 
-Run static verification and browser diagnostics. Check broken local assets,
-unsafe paths, console errors, failed requests, horizontal overflow, invalid
-document structure, remote runtime dependencies, and placeholders. Confirm the
-page works through `scripts/serve.py` without the agent host.
+Run static verification and browser diagnostics, and confirm the page works
+through `scripts/serve.py` without the agent host. Checklist:
+`guidelines/global/qa/technical-qa.md`, delivered to the reviewer.
 
 ## QA recording
 
@@ -76,3 +75,13 @@ unavailable checks fail the summary.
 After the four checks pass, the release verifier returns a JSON verdict with
 `status: "READY"`, `runId`, `candidateId`, `checkedAt`, and `summary`. Record it
 with `release-check`; the release command refuses missing or stale verdicts.
+
+## PDF export (optional)
+
+Only when the user has asked for a PDF deliverable: `content` (delegate to
+`content-reviewer`) and `visual-cutoff` (delegate to `ui-reviewer`) are two
+additional, independently blocking QA kinds scoped to a `pdf-###` export
+rather than the HTML candidate. See `pdf-export.md` for the full sequence;
+they are recorded and summarized the same way (`pdf-qa-record`,
+`pdf-qa-summary`) but never substitute for, or get satisfied by, the four
+checks above.
